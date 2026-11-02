@@ -1,0 +1,115 @@
+{
+  "run_id": "20261102114702-371265",
+  "question": "报销期限是多久？",
+  "mode": "offline:scripted",
+  "model": "offline:scripted",
+  "history": [],
+  "started_at": "2026-11-02T11:47:02+08:00",
+  "duration_ms": 0,
+  "exit_reason": "",
+  "steps": [
+    {
+      "step": 1,
+      "thought": "先检索「报销期限是多久？」",
+      "tool": "search_docs",
+      "arguments": {
+        "query": "报销期限是多久？",
+        "top_k": 3
+      },
+      "result_summary": "检索「报销期限是多久？」返回 3 条，最佳 D02#2（报销期限，coverage=0.5，strong）",
+      "next_action": "read_chunk",
+      "reason": "D02#2（报销期限）相关度最高，读取原文以便逐字引用",
+      "ok": true,
+      "latency_ms": 0
+    },
+    {
+      "step": 2,
+      "thought": "D02#2（报销期限）相关度最高，读取原文以便逐字引用",
+      "tool": "read_chunk",
+      "arguments": {
+        "chunk_id": "D02#2"
+      },
+      "result_summary": "读取 D02#2《费用报销实施细则》报销期限，44 字",
+      "next_action": "check_conflicts",
+      "reason": "已读到原文，提交前检查是否存在跨文档冲突",
+      "ok": true,
+      "latency_ms": 0
+    },
+    {
+      "step": 3,
+      "thought": "已读到原文，提交前检查是否存在跨文档冲突",
+      "tool": "check_conflicts",
+      "arguments": {
+        "query": "报销期限是多久？"
+      },
+      "result_summary": "发现 1 组冲突：报销期限（不可判定，需确认）",
+      "next_action": "read_chunk",
+      "reason": "「报销期限」存在冲突，补读 D01 原文以便并列引用",
+      "ok": true,
+      "latency_ms": 0
+    },
+    {
+      "step": 4,
+      "thought": "「报销期限」存在冲突，补读 D01 原文以便并列引用",
+      "tool": "read_chunk",
+      "arguments": {
+        "chunk_id": "D01#2"
+      },
+      "result_summary": "读取 D01#2《差旅报销管理办法》报销期限，61 字",
+      "next_action": "submit_answer",
+      "reason": "发现 报销期限 冲突且不可判定，提交待确认",
+      "ok": true,
+      "latency_ms": 0
+    },
+    {
+      "step": 5,
+      "thought": "发现 报销期限 冲突且不可判定，提交待确认",
+      "tool": "submit_answer",
+      "arguments": {
+        "status": "need_confirmation",
+        "answer": "关于「报销期限」，知识库中存在不一致，且无法判定应适用哪一份，需要你确认：\n\n- D01《差旅报销管理办法》（v1.2，2024-01-01 生效，active）：30 日\n- D02《费用报销实施细则》（v2.0，2024-06-01 生效，active）：15 日\n\n判定依据：D01（v1.2）、D02（v2.0） 均处于有效状态、作用域相同，且未声明优先级或替代关系，无法判定应适用哪一份。\n\n请确认以哪一份文件为准，我再给出最终答复。",
+        "citations": [
+          {
+            "doc_id": "D01",
+            "chunk_id": "D01#2",
+            "quote": "员工应在差旅费用发生之日起 30 日内提交报销申请。"
+          },
+          {
+            "doc_id": "D02",
+            "chunk_id": "D02#2",
+            "quote": "所有费用报销须在费用发生之日起 15 日内提交，逾期系统自动关闭单据，需走线下特殊审批。"
+          }
+        ]
+      },
+      "result_summary": "提交答案 status=need_confirmation，引用 2 条",
+      "next_action": "结束",
+      "reason": "模型提交最终答案",
+      "ok": true,
+      "latency_ms": 0
+    }
+  ],
+  "final": {
+    "status": "need_confirmation",
+    "answer": "关于「报销期限」，知识库中存在不一致，且无法判定应适用哪一份，需要你确认：\n\n- D01《差旅报销管理办法》（v1.2，2024-01-01 生效，active）：30 日\n- D02《费用报销实施细则》（v2.0，2024-06-01 生效，active）：15 日\n\n判定依据：D01（v1.2）、D02（v2.0） 均处于有效状态、作用域相同，且未声明优先级或替代关系，无法判定应适用哪一份。\n\n请确认以哪一份文件为准，我再给出最终答复。",
+    "citations": [
+      {
+        "doc_id": "D01",
+        "chunk_id": "D01#2",
+        "quote": "员工应在差旅费用发生之日起 30 日内提交报销申请。",
+        "valid": true,
+        "reason": ""
+      },
+      {
+        "doc_id": "D02",
+        "chunk_id": "D02#2",
+        "quote": "所有费用报销须在费用发生之日起 15 日内提交，逾期系统自动关闭单据，需走线下特殊审批。",
+        "valid": true,
+        "reason": ""
+      }
+    ],
+    "conflicts": [],
+    "missing": "",
+    "warnings": []
+  },
+  "notes": []
+}

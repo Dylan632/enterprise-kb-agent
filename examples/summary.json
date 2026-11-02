@@ -1,0 +1,90 @@
+{
+  "passed": 7,
+  "total": 7,
+  "rows": [
+    {
+      "id": "Q1",
+      "case": "01-normal-answer",
+      "expect": "answered",
+      "actual": "answered",
+      "turns": 3,
+      "calls": 5,
+      "cited": "D01",
+      "passed": true,
+      "reason": "",
+      "path": "examples\\01-normal-answer\\trace.md"
+    },
+    {
+      "id": "Q2",
+      "case": "02-doc-conflict",
+      "expect": "need_confirmation",
+      "actual": "need_confirmation",
+      "turns": 3,
+      "calls": 7,
+      "cited": "D01,D02",
+      "passed": true,
+      "reason": "",
+      "path": "examples\\02-doc-conflict\\trace.md"
+    },
+    {
+      "id": "Q3",
+      "case": "03-out-of-scope",
+      "expect": "insufficient",
+      "actual": "insufficient",
+      "turns": 4,
+      "calls": 6,
+      "cited": "-",
+      "passed": true,
+      "reason": "",
+      "path": "examples\\03-out-of-scope\\trace.md"
+    },
+    {
+      "id": "Q4",
+      "case": "04-query-rewrite",
+      "expect": "answered",
+      "actual": "answered",
+      "turns": 3,
+      "calls": 5,
+      "cited": "D01",
+      "passed": true,
+      "reason": "",
+      "path": "examples\\04-query-rewrite\\trace.md"
+    },
+    {
+      "id": "Q5",
+      "case": "05-version-conflict",
+      "expect": "answered",
+      "actual": "answered",
+      "turns": 3,
+      "calls": 7,
+      "cited": "D03,D04",
+      "passed": true,
+      "reason": "",
+      "path": "examples\\05-version-conflict\\trace.md"
+    },
+    {
+      "id": "Q6",
+      "case": "06-followup",
+      "expect": "answered",
+      "actual": "answered",
+      "turns": 4,
+      "calls": 6,
+      "cited": "D03",
+      "passed": true,
+      "reason": "",
+      "path": "examples\\06-followup\\trace.md"
+    },
+    {
+      "id": "Q7",
+      "case": "07-tool-failure",
+      "expect": "error",
+      "actual": "error",
+      "turns": 4,
+      "calls": 9,
+      "cited": "-",
+      "passed": true,
+      "reason": "",
+      "path": "examples\\07-tool-failure\\trace.md"
+    }
+  ]
+}

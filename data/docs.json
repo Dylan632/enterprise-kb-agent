@@ -1,0 +1,320 @@
+{
+  "corpus_version": "2026-11-02",
+  "note": "全部为合成数据，不含任何真实企业信息。用于 Agent 决策与引用校验的演示。",
+  "docs": [
+    {
+      "doc_id": "D01",
+      "title": "差旅报销管理办法",
+      "owner": "财务部",
+      "version": "v1.2",
+      "effective_date": "2024-01-01",
+      "scope": "全公司",
+      "status": "active",
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "",
+      "chunks": [
+        {
+          "chunk_id": "D01#1",
+          "heading": "适用范围",
+          "text": "本办法适用于公司全体正式员工及实习生的国内差旅活动。境外差旅参照《境外差旅管理补充规定》执行，本办法不覆盖境外场景。"
+        },
+        {
+          "chunk_id": "D01#2",
+          "heading": "报销期限",
+          "text": "员工应在差旅费用发生之日起 30 日内提交报销申请。超过 30 日未提交的，需由部门负责人与财务负责人共同签批后方可受理。"
+        },
+        {
+          "chunk_id": "D01#3",
+          "heading": "住宿标准",
+          "text": "一线城市（北京、上海、广州、深圳）住宿标准为 500 元/晚，其他城市为 350 元/晚。超标部分由个人承担。"
+        },
+        {
+          "chunk_id": "D01#4",
+          "heading": "交通标准",
+          "text": "市内交通凭票据实报实销，单日上限 100 元。城际出行原则上乘坐高铁二等座，单程超过 6 小时可乘坐飞机经济舱。"
+        }
+      ],
+      "facts": [
+        { "key": "报销期限", "value": "30 日", "numeric": 30, "unit": "日", "chunk_id": "D01#2" },
+        { "key": "住宿标准（一线城市）", "value": "500 元/晚", "numeric": 500, "unit": "元/晚", "chunk_id": "D01#3" }
+      ]
+    },
+    {
+      "doc_id": "D02",
+      "title": "费用报销实施细则",
+      "owner": "财务部",
+      "version": "v2.0",
+      "effective_date": "2024-06-01",
+      "scope": "全公司",
+      "status": "active",
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "与 D01 并行执行，未声明优先级。",
+      "chunks": [
+        {
+          "chunk_id": "D02#1",
+          "heading": "与既有制度的关系",
+          "text": "本细则是《差旅报销管理办法》的补充规定，两者并行执行。本细则未涉及的事项，按《差旅报销管理办法》执行。"
+        },
+        {
+          "chunk_id": "D02#2",
+          "heading": "报销期限",
+          "text": "所有费用报销须在费用发生之日起 15 日内提交，逾期系统自动关闭单据，需走线下特殊审批。"
+        },
+        {
+          "chunk_id": "D02#3",
+          "heading": "发票要求",
+          "text": "报销须提供增值税发票，发票抬头须为公司全称，个人抬头发票不予受理。电子发票需同时提交原件 PDF。"
+        },
+        {
+          "chunk_id": "D02#4",
+          "heading": "审批流程",
+          "text": "单笔 5000 元以下由部门负责人审批，5000 元及以上需财务负责人复核，20000 元以上需分管副总签批。"
+        }
+      ],
+      "facts": [
+        { "key": "报销期限", "value": "15 日", "numeric": 15, "unit": "日", "chunk_id": "D02#2" }
+      ]
+    },
+    {
+      "doc_id": "D03",
+      "title": "员工休假管理规定",
+      "owner": "人力资源部",
+      "version": "v3.0",
+      "effective_date": "2025-01-01",
+      "scope": "全公司",
+      "status": "active",
+      "supersedes": "D04",
+      "superseded_by": null,
+      "note": "替代 2023 版（D04）。",
+      "chunks": [
+        {
+          "chunk_id": "D03#1",
+          "heading": "年假",
+          "text": "员工入职满 1 年可享受带薪年假 7 天，满 3 年 10 天，满 5 年 15 天。年假需提前 3 个工作日在 HR 系统中提交申请，经直属主管审批后生效。"
+        },
+        {
+          "chunk_id": "D03#2",
+          "heading": "病假",
+          "text": "病假需提供二级以上医院出具的证明。连续病假 3 天以上需部门负责人审批，7 天以上需人力资源部备案。"
+        },
+        {
+          "chunk_id": "D03#3",
+          "heading": "调休",
+          "text": "加班调休需在加班发生后 6 个月内使用，逾期作废。调休申请流程与年假一致。"
+        }
+      ],
+      "facts": [
+        { "key": "年假天数（入职满 1 年）", "value": "7 天", "numeric": 7, "unit": "天", "chunk_id": "D03#1" },
+        { "key": "年假申请提前量", "value": "3 个工作日", "numeric": 3, "unit": "工作日", "chunk_id": "D03#1" }
+      ]
+    },
+    {
+      "doc_id": "D04",
+      "title": "员工休假管理规定（2023 版）",
+      "owner": "人力资源部",
+      "version": "v1.0",
+      "effective_date": "2023-01-01",
+      "scope": "全公司",
+      "status": "archived",
+      "supersedes": null,
+      "superseded_by": "D03",
+      "note": "历史存档，已由 D03 替代。",
+      "chunks": [
+        {
+          "chunk_id": "D04#1",
+          "heading": "年假",
+          "text": "员工入职满 1 年享受年假 5 天，满 3 年 8 天，满 5 年 12 天。年假需提前 5 个工作日申请。"
+        },
+        {
+          "chunk_id": "D04#2",
+          "heading": "版本说明",
+          "text": "本规定自 2025-01-01 起由 v3.0 版本（D03）替代，仅作历史存档，不再作为执行依据。"
+        }
+      ],
+      "facts": [
+        { "key": "年假天数（入职满 1 年）", "value": "5 天", "numeric": 5, "unit": "天", "chunk_id": "D04#1" }
+      ]
+    },
+    {
+      "doc_id": "D05",
+      "title": "采购管理办法",
+      "owner": "行政部",
+      "version": "v1.1",
+      "effective_date": "2024-03-01",
+      "scope": "全公司",
+      "status": "active",
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "",
+      "chunks": [
+        {
+          "chunk_id": "D05#1",
+          "heading": "比价要求",
+          "text": "单笔采购金额达到 5 万元及以上的，须取得至少三家供应商报价并留存比价记录，比价材料随合同一并归档。"
+        },
+        {
+          "chunk_id": "D05#2",
+          "heading": "审批权限",
+          "text": "5 万元以下由部门负责人审批，5 万元至 20 万元由分管副总审批，20 万元以上报总经理审批。"
+        },
+        {
+          "chunk_id": "D05#3",
+          "heading": "供应商准入",
+          "text": "新增供应商须完成资质审核，审核材料由行政部归档保存 3 年。未通过审核的供应商不得进入采购流程。"
+        }
+      ],
+      "facts": [
+        { "key": "采购比价门槛", "value": "5 万元", "numeric": 50000, "unit": "元", "chunk_id": "D05#1" }
+      ]
+    },
+    {
+      "doc_id": "D06",
+      "title": "信息安全与账号管理规范",
+      "owner": "信息技术部",
+      "version": "v2.1",
+      "effective_date": "2024-09-01",
+      "scope": "全公司",
+      "status": "active",
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "",
+      "chunks": [
+        {
+          "chunk_id": "D06#1",
+          "heading": "密码策略",
+          "text": "系统账号密码长度不少于 12 位，须包含大小写字母、数字与符号中的至少三类，每 90 天更换一次，不得与前三次重复。"
+        },
+        {
+          "chunk_id": "D06#2",
+          "heading": "VPN 与远程接入",
+          "text": "远程接入须通过公司 VPN，VPN 账号由信息技术部统一开通，不得共享或转借他人使用。"
+        },
+        {
+          "chunk_id": "D06#3",
+          "heading": "数据外发",
+          "text": "含客户信息或财务数据的文件对外发送前，须经数据 owner 审批并加密，禁止通过个人网盘或即时通讯工具传输。"
+        }
+      ],
+      "facts": [
+        { "key": "密码最小长度", "value": "12 位", "numeric": 12, "unit": "位", "chunk_id": "D06#1" },
+        { "key": "密码更换周期", "value": "90 天", "numeric": 90, "unit": "天", "chunk_id": "D06#1" }
+      ]
+    },
+    {
+      "doc_id": "D07",
+      "title": "考勤与远程办公规定",
+      "owner": "人力资源部",
+      "version": "v1.0",
+      "effective_date": "2024-04-01",
+      "scope": "全公司",
+      "status": "active",
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "",
+      "chunks": [
+        {
+          "chunk_id": "D07#1",
+          "heading": "弹性上下班",
+          "text": "上班打卡时间为 9:00 至 10:00，每日工作时长不少于 8 小时。迟到超过 30 分钟按事假半天处理。"
+        },
+        {
+          "chunk_id": "D07#2",
+          "heading": "远程办公",
+          "text": "员工每周可申请远程办公最多 2 天，需提前 1 个工作日在系统提交，经直属主管批准后生效。"
+        },
+        {
+          "chunk_id": "D07#3",
+          "heading": "加班认定",
+          "text": "加班需事前申请，未经审批的延时工作不计入加班，也不作为调休依据。"
+        }
+      ],
+      "facts": [
+        { "key": "远程办公每周上限", "value": "2 天", "numeric": 2, "unit": "天", "chunk_id": "D07#2" }
+      ]
+    },
+    {
+      "doc_id": "D08",
+      "title": "培训与认证补贴办法",
+      "owner": "人力资源部",
+      "version": "v1.0",
+      "effective_date": "2024-07-01",
+      "scope": "全公司",
+      "status": "active",
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "",
+      "chunks": [
+        {
+          "chunk_id": "D08#1",
+          "heading": "补贴额度",
+          "text": "员工参加与岗位相关的培训或认证，年度补贴上限为 5000 元，同一认证仅补贴一次。"
+        },
+        {
+          "chunk_id": "D08#2",
+          "heading": "申请流程",
+          "text": "培训结束后 30 日内提交发票、证书与学习总结，经部门负责人与人力资源部审核后报销。"
+        },
+        {
+          "chunk_id": "D08#3",
+          "heading": "服务期约定",
+          "text": "单次补贴超过 3000 元的，须签署 12 个月服务期协议，服务期内主动离职需按比例退还补贴。"
+        }
+      ],
+      "facts": [
+        { "key": "培训补贴年度上限", "value": "5000 元", "numeric": 5000, "unit": "元", "chunk_id": "D08#1" }
+      ]
+    },
+    {
+      "doc_id": "D09",
+      "title": "品牌与对外传播规范",
+      "owner": "市场部",
+      "version": "v1.0",
+      "effective_date": "2024-02-01",
+      "scope": "全公司",
+      "status": "active",
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "干扰项：与差旅、休假、IT 类问题无关。",
+      "chunks": [
+        {
+          "chunk_id": "D09#1",
+          "heading": "对外发布审批",
+          "text": "对外发布的新闻稿、白皮书与公开演讲材料须经市场部品牌组审核，涉及经营数据的须同步法务复核。"
+        },
+        {
+          "chunk_id": "D09#2",
+          "heading": "标识使用",
+          "text": "公司 Logo 的标准色值为 #1F5EFF，禁止拉伸、改色或添加描边。对外物料须使用品牌组提供的源文件。"
+        }
+      ],
+      "facts": []
+    },
+    {
+      "doc_id": "D10",
+      "title": "会议室与办公用品管理",
+      "owner": "行政部",
+      "version": "v1.0",
+      "effective_date": "2024-05-01",
+      "scope": "全公司",
+      "status": "active",
+      "supersedes": null,
+      "superseded_by": null,
+      "note": "干扰项：与知识问答主场景弱相关。",
+      "chunks": [
+        {
+          "chunk_id": "D10#1",
+          "heading": "会议室预订",
+          "text": "会议室通过 OA 系统预订，单次预订不超过 2 小时，超时需重新预约。连续三次预订未使用将暂停预订权限。"
+        },
+        {
+          "chunk_id": "D10#2",
+          "heading": "办公用品领用",
+          "text": "常规办公用品每月 5 日前统一申领，特殊用品需部门负责人审批，单次申领金额上限 800 元。"
+        }
+      ],
+      "facts": []
+    }
+  ]
+}

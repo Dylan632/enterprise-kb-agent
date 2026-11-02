@@ -1,0 +1,90 @@
+{
+  "run_id": "20261102114702-910376",
+  "question": "一线城市出差住宿标准是多少？",
+  "mode": "offline:scripted",
+  "model": "offline:scripted",
+  "history": [],
+  "started_at": "2026-11-02T11:47:02+08:00",
+  "duration_ms": 0,
+  "exit_reason": "",
+  "steps": [
+    {
+      "step": 1,
+      "thought": "先检索「一线城市出差住宿标准是多少？」",
+      "tool": "search_docs",
+      "arguments": {
+        "query": "一线城市出差住宿标准是多少？",
+        "top_k": 3
+      },
+      "result_summary": "检索「一线城市出差住宿标准是多少？」返回 3 条，最佳 D01#3（住宿标准，coverage=0.5，strong）",
+      "next_action": "read_chunk",
+      "reason": "D01#3（住宿标准）相关度最高，读取原文以便逐字引用",
+      "ok": true,
+      "latency_ms": 0
+    },
+    {
+      "step": 2,
+      "thought": "D01#3（住宿标准）相关度最高，读取原文以便逐字引用",
+      "tool": "read_chunk",
+      "arguments": {
+        "chunk_id": "D01#3"
+      },
+      "result_summary": "读取 D01#3《差旅报销管理办法》住宿标准，55 字",
+      "next_action": "check_conflicts",
+      "reason": "已读到原文，提交前检查是否存在跨文档冲突",
+      "ok": true,
+      "latency_ms": 0
+    },
+    {
+      "step": 3,
+      "thought": "已读到原文，提交前检查是否存在跨文档冲突",
+      "tool": "check_conflicts",
+      "arguments": {
+        "query": "一线城市出差住宿标准是多少？"
+      },
+      "result_summary": "未发现相关冲突",
+      "next_action": "submit_answer",
+      "reason": "原文已确认且无未消解冲突，提交答案",
+      "ok": true,
+      "latency_ms": 0
+    },
+    {
+      "step": 4,
+      "thought": "原文已确认且无未消解冲突，提交答案",
+      "tool": "submit_answer",
+      "arguments": {
+        "status": "answered",
+        "answer": "根据 D01《差旅报销管理办法》（v1.2）住宿标准：一线城市（北京、上海、广州、深圳）住宿标准为 500 元/晚，其他城市为 350 元/晚。",
+        "citations": [
+          {
+            "doc_id": "D01",
+            "chunk_id": "D01#3",
+            "quote": "一线城市（北京、上海、广州、深圳）住宿标准为 500 元/晚，其他城市为 350 元/晚。"
+          }
+        ]
+      },
+      "result_summary": "提交答案 status=answered，引用 1 条",
+      "next_action": "结束",
+      "reason": "模型提交最终答案",
+      "ok": true,
+      "latency_ms": 0
+    }
+  ],
+  "final": {
+    "status": "answered",
+    "answer": "根据 D01《差旅报销管理办法》（v1.2）住宿标准：一线城市（北京、上海、广州、深圳）住宿标准为 500 元/晚，其他城市为 350 元/晚。",
+    "citations": [
+      {
+        "doc_id": "D01",
+        "chunk_id": "D01#3",
+        "quote": "一线城市（北京、上海、广州、深圳）住宿标准为 500 元/晚，其他城市为 350 元/晚。",
+        "valid": true,
+        "reason": ""
+      }
+    ],
+    "conflicts": [],
+    "missing": "",
+    "warnings": []
+  },
+  "notes": []
+}
