@@ -89,18 +89,27 @@ class Agent:
 
             budget.record_tokens(response.input_tokens, response.output_tokens)
 
-            # 模型没调工具 = 它认为可以结束了
+            # 模型没调工具就想结束：不能直接采信。
+            # 这条路径没有经过 submit_answer，天然没有结构化引用，
+            # 若直接标成 answered 就等于绕过了全部校验（外部评审 P0 指出）。
+            # 统一送进 apply_guardrails：无有效引用会被降级为 insufficient。
             if not response.tool_calls:
-                final = FinalAnswer(status="answered", answer=(response.content or "").strip())
+                final = apply_guardrails(
+                    self.index,
+                    FinalAnswer(status="answered", answer=(response.content or "").strip()),
+                    question,
+                )
+                final.warnings.append("模型未调用任何工具、未提交结构化答案，已按校验结果处理")
                 trace.steps.append(
                     StepRecord(
                         step=step_no,
                         thought=(response.content or "").strip()[:300],
                         tool="(none)",
                         arguments={},
-                        result_summary="模型未调用工具，直接返回文本",
+                        result_summary=f"模型未调用工具，直接返回文本；校验后状态 {final.status}",
                         next_action="结束",
-                        reason="模型判定无需继续调用工具",
+                        reason="模型判定无需继续调用工具，但缺少可核验引用",
+                        ok=final.status == "answered",
                     )
                 )
                 break
@@ -166,9 +175,16 @@ class Agent:
     # ------------------------------------------------------------------ #
 
     def _finalize(self, submitted: Dict[str, Any], question: str, conflict_pool: List[Dict[str, Any]]) -> FinalAnswer:
-        status = str(submitted.get("status", "answered"))
-        if status not in VALID_STATUSES:
-            status = "answered"
+        raw_status = str(submitted.get("status", "")).strip()
+        # 未知状态必须失败关闭。若回退到 answered，一个拼错的 status 加上一条真实引用
+        # 就能把"未经支持的答案"标成已回答（外部评审 P1 指出）。
+        if raw_status not in VALID_STATUSES:
+            return FinalAnswer(
+                status="error",
+                answer=f"模型返回了无法识别的状态「{raw_status or '空'}」，已按失败处理，不采信其内容。",
+                warnings=[f"unknown_status:{raw_status or 'empty'}"],
+            )
+        status = raw_status
         citations = build_citations(self.index, submitted.get("citations") or [])
         answer = FinalAnswer(
             status=status,

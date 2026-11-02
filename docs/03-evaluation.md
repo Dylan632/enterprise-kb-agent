@@ -15,7 +15,7 @@
 
 ## 2. 单元测试
 
-`python -m pytest -q` → **34 passed in 0.18s**
+`python -m pytest -q` → **46 passed in 0.21s**
 
 | 文件 | 用例数 | 覆盖内容 |
 | --- | --- | --- |
@@ -25,6 +25,7 @@
 | `test_verify.py` | 6 | 引用逐字校验、doc_id 错配、无引用降级、冲突兜底 |
 | `test_agent.py` | 9 | 7 条决策路径 + Trace 字段完整性 + 步数上限 |
 | `test_no_secrets.py` | 3 | 全仓库密钥扫描、`.env.example` 留空、`.gitignore` 规则 |
+| `test_review_fixes.py` | 12 | 外部评审 5 条问题的回归测试，见第 7 节 |
 
 ## 3. 端到端验收结果
 
@@ -36,13 +37,14 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Q1 | 明确答案 | answered | answered | 3 | 5 | D01 | PASS |
 | Q2 | 文档冲突 | need_confirmation | need_confirmation | 3 | 7 | D01, D02 | PASS |
-| Q3 | 资料外问题 | insufficient | insufficient | 4 | 6 | — | PASS |
+| Q3 | 资料外问题 | insufficient | insufficient | 3 | 5 | — | PASS |
 | Q4 | 改写后的相似问题 | answered | answered | 3 | 5 | D01 | PASS |
 | Q5 | 版本冲突 | answered | answered | 3 | 7 | D03, D04 | PASS |
 | Q6 | 上下文追问 | answered | answered | 4 | 6 | D03 | PASS |
 | Q7 | 工具失败 | error | error | 4 | 9 | — | PASS |
 
 > 轮次 = 模型回复次数；调用 = 工具调用次数。一轮可并发多个工具，故两者不等。
+> 判定条件除状态与引用文档外，还包含**答案关键事实断言**（如 Q1 必须含 500、Q5 必须含 7 天）与**引用有效性**，见第 7 节 P2-2。
 
 汇总：`examples/summary.json`；逐条 trace：`examples/<case>/trace.{json,md}`。
 
@@ -55,7 +57,7 @@
 | --- | --- | --- |
 | 检索策略 | 并发多条不同措辞（Q1 首轮 2 条 query） | 单条 query，失败才改写 |
 | 冲突举证 | Q5 额外读 D04#2 版本说明作为"已废止"引用 | 只引新版正文 |
-| 平均轮次 | 3.4 | 4.3 |
+| 平均轮次 | 3.3 | 4.3 |
 
 live 反而**用更少的轮次拿到更完整的举证**，因为它会并发。这也说明规则模拟器的
 "逐条串行"策略不是最优解——这一条只能靠真实模型发现。
@@ -136,7 +138,7 @@ live 反而**用更少的轮次拿到更完整的举证**，因为它会并发�
 
 ```bash
 pip install -r requirements.txt
-python -m pytest -q                              # 34 passed
+python -m pytest -q                              # 46 passed
 
 # 离线（无需 key）
 python -m src.cli eval --offline
@@ -148,3 +150,61 @@ python -m src.cli eval
 # 单题
 python -m src.cli ask "报销期限是多久？" -v
 ```
+
+## 7. 外部评审与修复
+
+交付前把项目打包交给另一个模型做了一次独立静态审查（材料见 `enterprise-kb-agent-review/`）。
+它报了 2 个高优先级 + 3 个中优先级问题。**5 条全部属实，已全部修复并补了回归测试**
+（`tests/test_review_fixes.py`，12 个用例）。
+
+| # | 严重度 | 评审指出的问题 | 我的确认 | 修复 |
+| --- | --- | --- | --- | --- |
+| 1 | 高 | 模型不调工具、直接返回文本时，`agent.py` 把它设为 `answered` 并结束，**绕过了 `apply_guardrails`** | 属实。这条路径没有任何引用校验 | 统一送进 `apply_guardrails`；无引用即降级 `insufficient`，并记录 `tool="(none)"` 的步骤 |
+| 2 | 高 | `verify.py` 只校验引文是原文子串，不校验答案是否由引文推出 | 属实，且这是设计边界而非 bug | ① 模块文档改名为「引用真实性校验」并写明不保证语义 ② 新增数值一致性弱检查：答案里的「数值+单位」必须能在引文中找到 |
+| 3 | 中 | `conflict.py` 按 `key` 跨全部文档分组，**没有比较 `scope`**，注释却说"作用域相同" | 属实，注释与实现不符 | 新增 `_scope_overlaps` / `_scopes_disjoint`；范围不相交不判冲突；全公司 vs 具体范围时具体范围优先 |
+| 4 | 中 | 未知 `status` 回退成 `answered`，拼错的状态可能把无依据答案标成已回答 | 属实 | 改为失败关闭：返回 `error` + `unknown_status` 告警 |
+| 5 | 中 | `eval` 只查状态与引用文档，**答案数字错了也能 PASS** | 属实，Q1 确实没断言 500 | 用例新增 `expect_answer_contains`；判定增加引用有效性检查 |
+
+### 修复 1 的意义
+
+这是五条里唯一会**直接推翻核心承诺**的问题。修复前的路径：
+
+```python
+if not response.tool_calls:
+    final = FinalAnswer(status="answered", answer=response.content)   # 无校验
+    break
+```
+
+修复后同一分支走完整校验，效果是：**模型不检索、不引用，就只能得到 `insufficient`**。
+`test_text_answer_does_not_bypass_guardrail_even_if_it_looks_complete` 专门守这条——
+即使文本自称"根据 D01，报销期限是 30 日"，也会被判无依据。
+
+### 修复 2 的边界必须说清楚
+
+我加的是**数值一致性检查**，不是语义校验。它只能拦住"引用 15 日那句、答 30 日"这类
+数值对不上的错答，拦不住"数值都对、结论跑偏"的情况。
+
+所以文档里不再写"引用校验保证答案正确"，而是明确区分两件事：
+
+| 能力 | 有 | 无 |
+| --- | --- | --- |
+| 引文确实来自该片段（可机械验证） | ✅ | |
+| 答案的数值没有脱离引文 | ✅ | |
+| 答案的**结论**由引文推出（语义蕴含） | | ❌ 需事实级断言或独立核验模型 |
+
+### 修复后回归
+
+| 项 | 修复前 | 修复后 |
+| --- | --- | --- |
+| 测试数 | 34 | **46** |
+| live 回归 | 7/7 | **7/7**（判定条件更严） |
+| 离线回归 | 7/7 | **7/7** |
+| 可绕过的作答路径 | 1 条（无工具直答） | 0 条 |
+
+### 一点反思
+
+这 5 条里有 4 条是**我自己的注释或文档写了、但代码没做**的：
+`conflict.py` 说"作用域相同"却比较 `status`；`verify.py` 的模块名暗示了超出实际的能力；
+`docs/01` 写"answered 至少 1 条有效引用"，但 `agent.py` 留了一条不走校验的出口。
+
+**注释比代码更容易骗人。** 写"这里保证了 X"之前，应该先有一条测试叫 `test_X`。

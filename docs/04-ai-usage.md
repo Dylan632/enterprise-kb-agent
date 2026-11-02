@@ -17,7 +17,7 @@
 | `src/agent.py` `src/budget.py` `src/tools.py` | AI 按我给出的循环要求生成 | 采纳 |
 | `src/index.py` `src/conflict.py` `src/verify.py` | AI 生成，BM25、冲突两分法、引用校验 | 采纳 |
 | `src/llm.py` `src/prompt.py` `src/cli.py` `src/trace.py` | AI 生成 | 采纳 |
-| `tests/` 34 个用例 | AI 生成初稿 | 3 个断言在实测后修正（见 `docs/03-evaluation.md` 第 4 节） |
+| `tests/` 46 个用例 | AI 生成初稿 | 3 个断言在实测后修正；12 个是外部评审后的回归用例（见 `docs/03-evaluation.md` 第 7 节） |
 | `data/docs.json` 10 篇制度 | AI 生成文本 | 我指定了两组冲突的埋点位置与取值 |
 | `docs/01`–`05` | AI 生成初稿 | 数据与结论由实测填入 |
 | `examples/` 7 组 trace | 程序真实运行产出 | 非人工编写 |
@@ -43,7 +43,16 @@
 - 提供 DeepSeek API key，使 live 模式得以实测（`examples/` 中的 7 组 trace 由真实模型产出）。
 - key 仅通过环境变量传入，未写入任何文件；仓库内已加 `tests/test_no_secrets.py` 做泄漏自检。
 
-### 3.4 我没有做的
+### 3.4 委托外部模型做了一次独立评审
+
+交付前我把项目打包（`enterprise-kb-agent-review/`）交给另一个模型做静态审查。
+它报了 2 个高优先级 + 3 个中优先级问题，其中一条是"模型不调工具直接作答会绕过全部校验"——
+这是我自己没发现的真漏洞。5 条已全部修复，并补了 12 条回归测试。
+
+这件事说明：**"34 个测试全过"和"没有漏洞"是两件事。** 测试是我按自己的假设写的，
+假设本身错了，测试就测不出来。
+
+### 3.5 我没有做的
 
 - 没有手写或修改任何代码。
 - 没有独立排查过 bug（三个 bug 的定位与修复见 `docs/03-evaluation.md` 第 4 节，由 AI 完成）。
@@ -55,7 +64,7 @@
 
 | 验证项 | 命令 | 结果 | 留存位置 |
 | --- | --- | --- | --- |
-| 单元测试 | `python -m pytest -q` | 34 passed | 终端输出 |
+| 单元测试 | `python -m pytest -q` | 46 passed | 终端输出 |
 | 真实模型全量回归 | `python -m src.cli eval` | 7/7 通过 | `examples/summary.json` |
 | 离线对照 | `python -m src.cli eval --offline` | 7/7 通过 | `examples/offline-mock/` |
 | 引用真实性 | 人工比对 `examples/*/trace.md` 的 quote 与 `data/docs.json` 原文 | 7 组全部一致 | `examples/` |

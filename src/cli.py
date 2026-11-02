@@ -129,11 +129,19 @@ def cmd_eval(args: argparse.Namespace) -> int:
         final = trace.final
         cited_docs = {c.doc_id for c in (final.citations if final else [])}
         cited_chunks = {c.chunk_id for c in (final.citations if final else [])}
+        answer_text = final.answer if final else ""
+
         status_ok = bool(final) and final.status == case["expect_status"]
         docs_ok = all(d in cited_docs for d in case.get("expect_doc_ids", []))
         forbid_docs = [d for d in case.get("forbid_doc_ids", []) if d in cited_docs]
         forbid_chunks = [c for c in case.get("forbid_chunks", []) if c in cited_chunks]
-        passed = status_ok and docs_ok and not forbid_docs and not forbid_chunks
+        # 只对状态和引用文档做断言，会漏掉"数字答错但格式合规"的情况（外部评审 P2 指出）
+        missing_facts = [k for k in case.get("expect_answer_contains", []) if not _contains(answer_text, k)]
+        bad_answer = [k for k in case.get("forbid_answer_contains", []) if _contains(answer_text, k)]
+        invalid_citations = [c.chunk_id for c in (final.citations if final else []) if not c.valid]
+
+        passed = (status_ok and docs_ok and not forbid_docs and not forbid_chunks
+                  and not missing_facts and not bad_answer and not invalid_citations)
 
         rows.append(
             {
@@ -145,7 +153,8 @@ def cmd_eval(args: argparse.Namespace) -> int:
                 "calls": len(trace.steps),
                 "cited": ",".join(sorted(cited_docs)) or "-",
                 "passed": passed,
-                "reason": _fail_reason(status_ok, docs_ok, forbid_docs, forbid_chunks, case),
+                "reason": _fail_reason(status_ok, docs_ok, forbid_docs, forbid_chunks,
+                                       missing_facts, bad_answer, invalid_citations, case),
                 "path": _rel(paths["md"]),
             }
         )
@@ -178,7 +187,13 @@ def _rel(path: Path) -> str:
         return str(path)
 
 
+def _contains(text: str, needle: str) -> bool:
+    """忽略空白比对，避免「500 元/晚」与「500元/晚」这类格式差异造成误判。"""
+    return needle.replace(" ", "") in (text or "").replace(" ", "")
+
+
 def _fail_reason(status_ok: bool, docs_ok: bool, forbid_docs: List[str], forbid_chunks: List[str],
+                 missing_facts: List[str], bad_answer: List[str], invalid_citations: List[str],
                  case: Dict[str, Any]) -> str:
     reasons = []
     if not status_ok:
@@ -189,6 +204,12 @@ def _fail_reason(status_ok: bool, docs_ok: bool, forbid_docs: List[str], forbid_
         reasons.append(f"错误引用 {forbid_docs}")
     if forbid_chunks:
         reasons.append(f"错误引用片段 {forbid_chunks}")
+    if missing_facts:
+        reasons.append(f"答案缺少关键事实 {missing_facts}")
+    if bad_answer:
+        reasons.append(f"答案出现禁止内容 {bad_answer}")
+    if invalid_citations:
+        reasons.append(f"引用无效 {invalid_citations}")
     return "；".join(reasons)
 
 

@@ -67,7 +67,7 @@ enterprise-kb-agent/
 │   ├── prompt.py              # 系统提示词
 │   ├── llm.py                 # 真实模型 / 离线模拟器
 │   └── models.py              # 数据结构
-├── tests/                     # 34 个测试，覆盖检索、预算、冲突、校验、端到端、密钥自检
+├── tests/                     # 46 个测试：检索、预算、冲突、校验、端到端、密钥自检、评审回归
 ├── examples/                  # 真实模型（deepseek-flash）跑出的 7 组 trace
 │   ├── 01-normal-answer/ … 07-tool-failure/
 │   ├── summary.json           # 7/7 通过
@@ -123,12 +123,15 @@ enterprise-kb-agent/
 | --- | --- | --- |
 | `live:deepseek-flash` | **7/7 通过** | 主证据，见 `examples/summary.json` |
 | `offline:scripted` | 7/7 通过 | 对照，只证明工程链路 |
-| `pytest` | 34 passed | 含 3 条密钥泄漏自检 |
+| `pytest` | 46 passed | 含 3 条密钥泄漏自检 + 12 条外部评审回归 |
 
 真实模型的表现与离线模拟器有两处明显差异，值得注意：
 
 - **检索更主动**：会并发多个措辞同时检索（Q1 首轮发 2 条 query），命中率更高。
 - **举证更完整**：Q5 会额外读取 D04#2（版本说明）作为"旧版已废止"的引用，而不是只引新版正文。
+
+> 交付前另做过一次**外部模型独立评审**，报了 5 个问题（含 1 条可绕过全部校验的高危路径）。
+> 5 条全部属实、已全部修复并补 12 条回归测试，详见 `docs/03-evaluation.md` 第 7 节。
 
 ## 7. 已知限制
 

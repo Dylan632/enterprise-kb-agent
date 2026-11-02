@@ -27,6 +27,23 @@ def _group_facts(index: KnowledgeIndex) -> Dict[str, List[tuple]]:
     return groups
 
 
+COMPANY_WIDE = "全公司"
+
+
+def _scope_overlaps(a: str, b: str) -> bool:
+    """两个适用范围是否有交集。全公司视为与任何范围相交。"""
+    return a == b or a == COMPANY_WIDE or b == COMPANY_WIDE
+
+
+def _scopes_disjoint(docs: List[Doc]) -> bool:
+    """所有文档的适用范围两两不相交 → 各自生效，不构成冲突。"""
+    for i in range(len(docs)):
+        for j in range(i + 1, len(docs)):
+            if _scope_overlaps(docs[i].scope, docs[j].scope):
+                return False
+    return True
+
+
 def _resolve(entries: List[tuple]) -> tuple[bool, Optional[str], str]:
     """判断一组事实是否可判定，返回 (resolvable, winner_doc_id, reason)。"""
     docs: List[Doc] = [d for d, _ in entries]
@@ -52,15 +69,28 @@ def _resolve(entries: List[tuple]) -> tuple[bool, Optional[str], str]:
                     f"{doc.doc_id} 已被 {newer.doc_id} 替代（见 {doc.doc_id} 版本说明），以 {newer.doc_id} 为准",
                 )
 
+    # 适用范围优先于"谁更新"：具体范围的规定在其范围内覆盖全公司规定。
+    # 外部评审指出此前注释声称"作用域相同"，实现却没比较 scope，这里补上。
+    specific = [d for d in docs if d.scope != COMPANY_WIDE]
+    company = [d for d in docs if d.scope == COMPANY_WIDE]
+    if specific and company and len({d.scope for d in specific}) == 1:
+        winner = specific[0]
+        return (
+            True,
+            winner.doc_id,
+            f"{winner.doc_id} 仅适用于「{winner.scope}」，在该范围内优先于全公司规定 "
+            f"{'、'.join(d.doc_id for d in company)}",
+        )
+
     active = [d for d in docs if d.status == "active"]
     if len(active) < 2:
         return True, (active[0].doc_id if active else None), "仅一份文件处于有效状态"
 
-    names = "、".join(f"{d.doc_id}（{d.version}）" for d in active)
+    names = "、".join(f"{d.doc_id}（{d.version}，适用：{d.scope}）" for d in active)
     return (
         False,
         None,
-        f"{names} 均处于有效状态、作用域相同，且未声明优先级或替代关系，无法判定应适用哪一份",
+        f"{names} 均处于有效状态、适用范围相交，且未声明优先级或替代关系，无法判定应适用哪一份",
     )
 
 
@@ -76,6 +106,9 @@ def detect_conflicts(index: KnowledgeIndex, doc_ids: Optional[Sequence[str]] = N
         if len(distinct) < 2:
             continue
         if wanted is not None and not ({d.doc_id for d, _ in entries} & wanted):
+            continue
+        # 适用范围两两不相交 → 各自生效，不是冲突
+        if _scopes_disjoint([d for d, _ in entries]):
             continue
         resolvable, winner, reason = _resolve(entries)
         results.append(

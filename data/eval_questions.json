@@ -1,30 +1,49 @@
 {
-  "note": "验收问题集。每组对应题面「必须验收」中的一个或多个点，同一用例可覆盖多个验收点。",
+  "note": "验收问题集。每组对应题面「必须验收」中的一个或多个点，同一用例可覆盖多个验收点。除状态与引用文档外，关键用例还断言答案中的关键事实（expect_answer_contains），避免「状态对、引用对、数字错」也能通过。",
   "cases": [
     {
       "id": "Q1",
       "case_dir": "01-normal-answer",
       "question": "一线城市出差住宿标准是多少？",
       "expect_status": "answered",
-      "covers": ["明确答案"],
-      "expect_doc_ids": ["D01"],
-      "note": "标准路径：一次检索即命中 D01#3，应给出 500 元/晚并引用原文。"
+      "covers": [
+        "明确答案"
+      ],
+      "expect_doc_ids": [
+        "D01"
+      ],
+      "note": "标准路径：一次检索即命中 D01#3，应给出 500 元/晚并引用原文。",
+      "expect_answer_contains": [
+        "500",
+        "350"
+      ]
     },
     {
       "id": "Q2",
       "case_dir": "02-doc-conflict",
       "question": "报销期限是多久？",
       "expect_status": "need_confirmation",
-      "covers": ["文档冲突"],
-      "expect_doc_ids": ["D01", "D02"],
-      "note": "D01 为 30 日、D02 为 15 日，D02 明确声明「并行执行」且未声明优先级，不得擅自选一个。"
+      "covers": [
+        "文档冲突"
+      ],
+      "expect_doc_ids": [
+        "D01",
+        "D02"
+      ],
+      "note": "D01 为 30 日、D02 为 15 日，D02 明确声明「并行执行」且未声明优先级，不得擅自选一个。",
+      "expect_answer_contains": [
+        "30",
+        "15"
+      ]
     },
     {
       "id": "Q3",
       "case_dir": "03-out-of-scope",
       "question": "公司年会的预算是多少？",
       "expect_status": "insufficient",
-      "covers": ["资料外问题"],
+      "covers": [
+        "资料外问题"
+      ],
       "note": "知识库无年会预算相关内容，应明确说明资料中没有，不得凭常识作答。"
     },
     {
@@ -32,38 +51,67 @@
       "case_dir": "04-query-rewrite",
       "question": "住酒店一晚上限多少钱？",
       "expect_status": "answered",
-      "covers": ["改写后的相似问题"],
-      "expect_doc_ids": ["D01"],
+      "covers": [
+        "改写后的相似问题"
+      ],
+      "expect_doc_ids": [
+        "D01"
+      ],
       "expect_rewrite": true,
-      "note": "口语化表述与原文「住宿标准」无词面重叠，需模型改写查询后重检。"
+      "note": "口语化表述与原文「住宿标准」无词面重叠，需模型改写查询后重检。",
+      "expect_answer_contains": [
+        "500"
+      ]
     },
     {
       "id": "Q5",
       "case_dir": "05-version-conflict",
       "question": "年假有几天？",
       "expect_status": "answered",
-      "covers": ["版本冲突（可判定）"],
-      "expect_doc_ids": ["D03"],
-      "forbid_chunks": ["D04#1"],
-      "note": "D03 声明替代 D04，属可判定冲突：应回答 7 天，并说明依据为 D03 替代 D04。允许引用 D04#2（版本说明）作为废止举证，但不得引用 D04#1（5 天）作为天数依据。"
+      "covers": [
+        "版本冲突（可判定）"
+      ],
+      "expect_doc_ids": [
+        "D03"
+      ],
+      "forbid_chunks": [
+        "D04#1"
+      ],
+      "note": "D03 声明替代 D04，属可判定冲突：应回答 7 天，并说明依据为 D03 替代 D04。允许引用 D04#2（版本说明）作为废止举证，但不得引用 D04#1（5 天）作为天数依据。",
+      "expect_answer_contains": [
+        "7天"
+      ]
     },
     {
       "id": "Q6",
       "case_dir": "06-followup",
       "question": "那需要提前几天申请？",
-      "history": ["年假有几天？"],
+      "history": [
+        "年假有几天？"
+      ],
       "expect_status": "answered",
-      "covers": ["上下文追问"],
-      "expect_doc_ids": ["D03"],
-      "note": "单看问题无法定位主题，需从上一轮「年假」继承上下文。"
+      "covers": [
+        "上下文追问"
+      ],
+      "expect_doc_ids": [
+        "D03"
+      ],
+      "note": "单看问题无法定位主题，需从上一轮「年假」继承上下文。",
+      "expect_answer_contains": [
+        "3个工作日"
+      ]
     },
     {
       "id": "Q7",
       "case_dir": "07-tool-failure",
       "question": "报销期限是多久？",
-      "fail_tools": ["read_chunk"],
+      "fail_tools": [
+        "read_chunk"
+      ],
       "expect_status": "error",
-      "covers": ["工具失败"],
+      "covers": [
+        "工具失败"
+      ],
       "note": "read_chunk 全部失败，模型应尝试换 chunk 后停止，明确说明无法读取原文，不得凭片段作答。"
     }
   ]
