@@ -12,7 +12,7 @@
       "cited": "D01",
       "passed": true,
       "reason": "",
-      "path": "examples\\offline-mock\\01-normal-answer\\trace.md"
+      "path": "examples/offline-mock/01-normal-answer/trace.md"
     },
     {
       "id": "Q2",
@@ -24,7 +24,7 @@
       "cited": "D01,D02",
       "passed": true,
       "reason": "",
-      "path": "examples\\offline-mock\\02-doc-conflict\\trace.md"
+      "path": "examples/offline-mock/02-doc-conflict/trace.md"
     },
     {
       "id": "Q3",
@@ -36,7 +36,7 @@
       "cited": "-",
       "passed": true,
       "reason": "",
-      "path": "examples\\offline-mock\\03-out-of-scope\\trace.md"
+      "path": "examples/offline-mock/03-out-of-scope/trace.md"
     },
     {
       "id": "Q4",
@@ -48,7 +48,7 @@
       "cited": "D01",
       "passed": true,
       "reason": "",
-      "path": "examples\\offline-mock\\04-query-rewrite\\trace.md"
+      "path": "examples/offline-mock/04-query-rewrite/trace.md"
     },
     {
       "id": "Q5",
@@ -60,7 +60,7 @@
       "cited": "D03",
       "passed": true,
       "reason": "",
-      "path": "examples\\offline-mock\\05-version-conflict\\trace.md"
+      "path": "examples/offline-mock/05-version-conflict/trace.md"
     },
     {
       "id": "Q6",
@@ -72,7 +72,7 @@
       "cited": "D03",
       "passed": true,
       "reason": "",
-      "path": "examples\\offline-mock\\06-followup\\trace.md"
+      "path": "examples/offline-mock/06-followup/trace.md"
     },
     {
       "id": "Q7",
@@ -84,7 +84,7 @@
       "cited": "-",
       "passed": true,
       "reason": "",
-      "path": "examples\\offline-mock\\07-tool-failure\\trace.md"
+      "path": "examples/offline-mock/07-tool-failure/trace.md"
     }
   ]
 }

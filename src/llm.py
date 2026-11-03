@@ -20,6 +20,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from src.conflict import is_conflict_relevant
 from src.index import tokenize
 from src.models import ToolCall
 
@@ -210,10 +211,9 @@ class OfflineScriptedClient(LLMClient):
 
         # 5) 冲突涉及的另一份文件还没读 → 补读，保证并列引用都来自原文
         groups = checks[-1][2].get("conflicts", [])
-        q_tokens = set(tokenize(question))
         read_ids = {p.get("chunk_id") for p in ok_reads}
         for group in groups:
-            if not (set(tokenize(group["key"])) & q_tokens):
+            if not is_conflict_relevant(group["key"], question):
                 continue
             pending = [e for e in group["entries"] if e["chunk_id"] not in read_ids]
             if pending and len(ok_reads) < 3:
@@ -286,12 +286,11 @@ class OfflineScriptedClient(LLMClient):
 
     def _compose(self, question: str, query: str, ok_reads: List[Dict[str, Any]], check_payload: Dict[str, Any]) -> ChatResponse:
         groups = check_payload.get("conflicts", [])
-        q_tokens = set(tokenize(question))
         cited_docs = {p.get("doc_id") for p in ok_reads}
 
         unresolved = [
             g for g in groups
-            if not g.get("resolvable") and set(tokenize(g["key"])) & q_tokens
+            if not g.get("resolvable") and is_conflict_relevant(g["key"], question)
         ]
         if unresolved:
             group = unresolved[0]
@@ -336,7 +335,7 @@ class OfflineScriptedClient(LLMClient):
         for group in groups:
             if not group.get("resolvable"):
                 continue
-            if not (set(tokenize(group["key"])) & q_tokens):
+            if not is_conflict_relevant(group["key"], question):
                 continue
             if group.get("winner_doc_id") not in cited_docs:
                 continue

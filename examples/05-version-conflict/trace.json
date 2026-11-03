@@ -17,7 +17,7 @@
         "top_k": 5
       },
       "result_summary": "检索「年休假 天数 标准」返回 5 条，最佳 D01#3（住宿标准，coverage=0.25，weak）",
-      "next_action": "read_chunk",
+      "next_action": "read_chunk + check_conflicts",
       "reason": "检索到现行版 D03 与已存档的 D04 对年假天数规定不同，我先读取两份原文并检查冲突判定。",
       "ok": true,
       "latency_ms": 0
@@ -31,7 +31,7 @@
         "top_k": 5
       },
       "result_summary": "检索「带薪年休假 休假规定」返回 5 条，最佳 D03#1（年假，coverage=0.667，strong）",
-      "next_action": "read_chunk",
+      "next_action": "read_chunk + check_conflicts",
       "reason": "检索到现行版 D03 与已存档的 D04 对年假天数规定不同，我先读取两份原文并检查冲突判定。",
       "ok": true,
       "latency_ms": 0
@@ -148,9 +148,7 @@
     ],
     "conflicts": [],
     "missing": "",
-    "warnings": [
-      "答案中的数值 ['12', '5', '8'] 未出现在引用原文中，请人工复核"
-    ]
+    "warnings": []
   },
   "notes": []
 }

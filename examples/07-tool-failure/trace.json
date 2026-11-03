@@ -17,7 +17,7 @@
         "top_k": 5
       },
       "result_summary": "检索「报销期限」返回 5 条，最佳 D02#2（报销期限，coverage=1.0，strong）",
-      "next_action": "read_chunk",
+      "next_action": "read_chunk + check_conflicts",
       "reason": "两份文档的期限不一致（15 日 / 30 日），我读取原文并检查冲突。",
       "ok": true,
       "latency_ms": 0
@@ -31,7 +31,7 @@
         "top_k": 5
       },
       "result_summary": "检索「费用报销时限规定 自费用发生之日起」返回 5 条，最佳 D02#2（报销期限，coverage=0.615，strong）",
-      "next_action": "read_chunk",
+      "next_action": "read_chunk + check_conflicts",
       "reason": "两份文档的期限不一致（15 日 / 30 日），我读取原文并检查冲突。",
       "ok": true,
       "latency_ms": 0
@@ -97,7 +97,7 @@
       },
       "result_summary": "失败：read_chunk 调用失败：上游服务超时（模拟故障注入）",
       "next_action": "submit_answer",
-      "reason": "根据上一轮观察继续",
+      "reason": "原文读取连续失败，无法核实条款原文，停止作答",
       "ok": false,
       "latency_ms": 0
     },
@@ -110,7 +110,7 @@
       },
       "result_summary": "失败：read_chunk 调用失败：上游服务超时（模拟故障注入）",
       "next_action": "submit_answer",
-      "reason": "根据上一轮观察继续",
+      "reason": "原文读取连续失败，无法核实条款原文，停止作答",
       "ok": false,
       "latency_ms": 0
     },

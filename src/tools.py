@@ -132,6 +132,7 @@ class ToolRegistry:
         self.injector = injector or FailureInjector()
         self.submitted: Optional[Dict[str, Any]] = None
         self.call_count: Dict[str, int] = {}
+        self.read_chunks: Set[str] = set()
 
     def definitions(self) -> List[Dict[str, Any]]:
         return TOOL_DEFINITIONS
@@ -172,7 +173,7 @@ class ToolRegistry:
 
     def _search_docs(self, args: Dict[str, Any]) -> ToolResult:
         query = str(args.get("query", "")).strip()
-        top_k = min(int(args.get("top_k", 3) or 3), 5)
+        top_k = max(1, min(int(args.get("top_k", 3) or 3), 5))
         if not query:
             return ToolResult(call_id="", name="search_docs", ok=False, error="query 不能为空", summary="参数错误")
         hits = self.index.search(query, top_k=top_k)
@@ -215,6 +216,7 @@ class ToolRegistry:
                 summary=f"read_chunk 失败：{chunk_id} 不存在",
             )
         doc, chunk = pair
+        self.read_chunks.add(chunk.chunk_id)
         payload = {
             "doc_id": doc.doc_id,
             "doc_title": doc.title,
@@ -265,4 +267,13 @@ class ToolRegistry:
             ok=True,
             payload={"status": status, "citation_count": len(citations)},
             summary=f"提交答案 status={status}，引用 {len(citations)} 条",
+        )
+
+    def reject_premature_submit(self) -> ToolResult:
+        return ToolResult(
+            call_id="",
+            name="submit_answer",
+            ok=False,
+            error="不得在同一轮并发调用其他工具的同时调用 submit_answer；请先观察本轮工具返回结果，下一轮再提交答案",
+            summary="失败：未观察同轮工具结果即提前提交",
         )

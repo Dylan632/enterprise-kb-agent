@@ -139,9 +139,19 @@ def cmd_eval(args: argparse.Namespace) -> int:
         missing_facts = [k for k in case.get("expect_answer_contains", []) if not _contains(answer_text, k)]
         bad_answer = [k for k in case.get("forbid_answer_contains", []) if _contains(answer_text, k)]
         invalid_citations = [c.chunk_id for c in (final.citations if final else []) if not c.valid]
+        search_queries = [
+            str(s.arguments.get("query", "")).strip()
+            for s in trace.steps
+            if s.tool == "search_docs"
+        ]
+        rewrite_ok = (
+            not case.get("expect_rewrite")
+            or len(set(search_queries)) >= 2
+            or any(q and q != case["question"] for q in search_queries)
+        )
 
         passed = (status_ok and docs_ok and not forbid_docs and not forbid_chunks
-                  and not missing_facts and not bad_answer and not invalid_citations)
+                  and not missing_facts and not bad_answer and not invalid_citations and rewrite_ok)
 
         rows.append(
             {
@@ -154,7 +164,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
                 "cited": ",".join(sorted(cited_docs)) or "-",
                 "passed": passed,
                 "reason": _fail_reason(status_ok, docs_ok, forbid_docs, forbid_chunks,
-                                       missing_facts, bad_answer, invalid_citations, case),
+                                       missing_facts, bad_answer, invalid_citations, rewrite_ok, case),
                 "path": _rel(paths["md"]),
             }
         )
@@ -182,9 +192,9 @@ def cmd_eval(args: argparse.Namespace) -> int:
 
 def _rel(path: Path) -> str:
     try:
-        return str(path.resolve().relative_to(ROOT))
+        return path.resolve().relative_to(ROOT).as_posix()
     except ValueError:
-        return str(path)
+        return path.as_posix()
 
 
 def _contains(text: str, needle: str) -> bool:
@@ -194,7 +204,7 @@ def _contains(text: str, needle: str) -> bool:
 
 def _fail_reason(status_ok: bool, docs_ok: bool, forbid_docs: List[str], forbid_chunks: List[str],
                  missing_facts: List[str], bad_answer: List[str], invalid_citations: List[str],
-                 case: Dict[str, Any]) -> str:
+                 rewrite_ok: bool, case: Dict[str, Any]) -> str:
     reasons = []
     if not status_ok:
         reasons.append(f"状态不符（期望 {case['expect_status']}）")
@@ -210,6 +220,8 @@ def _fail_reason(status_ok: bool, docs_ok: bool, forbid_docs: List[str], forbid_
         reasons.append(f"答案出现禁止内容 {bad_answer}")
     if invalid_citations:
         reasons.append(f"引用无效 {invalid_citations}")
+    if not rewrite_ok:
+        reasons.append("未发生查询改写")
     return "；".join(reasons)
 
 

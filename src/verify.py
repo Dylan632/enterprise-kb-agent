@@ -18,29 +18,54 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Set
 
-from src.conflict import unresolved_among
-from src.index import KnowledgeIndex, tokenize
+from src.conflict import is_conflict_relevant, unresolved_among
+from src.index import KnowledgeIndex
 from src.models import Citation, ConflictGroup, FinalAnswer
 
 MIN_QUOTE_LEN = 8
+# 提及旧版/归档对比时的关键词：仅当答案显式说明旧版背景时，才允许已读归档文档的数值豁免
+_ARCHIVED_MENTION_HINTS = ("旧版", "归档", "原规定", "历史", "废止", "替代", "2023")
 
 # 只抽「数字 + 计量单位」的组合，避开年份、版本号、条款编号等噪声。
 # 单位按长度优先排列，避免「个工作日」被「日」截断。
-_NUM_UNIT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(个工作日|工作日|万元|元|天|日|位|次|小时|%|倍)")
+_NUM_UNIT_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(个工作日|工作日|个月|分钟|小时|万元|元|天|日|年|位|次|%|倍)"
+)
+
+
+_UNIT_NORM = {
+    "个工作日": "工作日",
+    "工作日": "工作日",
+    "日": "天",
+    "天": "天",
+}
 
 
 def normalize(text: str) -> str:
     return re.sub(r"\s+", "", text or "")
 
 
-def extract_quantities(text: str) -> set:
-    """抽取「数值+单位」中的数值部分。单位本身不参与比对，避免「30 日 / 30 天」误判。"""
-    return {m.group(1) for m in _NUM_UNIT_RE.finditer(text or "")}
+def extract_quantities(text: str) -> Set[str]:
+    """抽取「数值+归一化单位」（如 '7天'、'5年'、'3工作日'）。
+
+    将「日/天」「个工作日/工作日」做同义归一，避免「30 日 / 30 天」被误判为不同数值，
+    同时防止跨单位张冠李戴（例如原文里的「满 5 年」掩护答案里编造的「5 天」）。
+    """
+    out: Set[str] = set()
+    for m in _NUM_UNIT_RE.finditer(text or ""):
+        num, unit = m.group(1), m.group(2)
+        norm_unit = _UNIT_NORM.get(unit, unit)
+        out.add(f"{num}{norm_unit}")
+    return out
 
 
-def build_citations(index: KnowledgeIndex, raw: Sequence[Dict[str, Any]]) -> List[Citation]:
+def build_citations(
+    index: KnowledgeIndex,
+    raw: Sequence[Dict[str, Any]],
+    read_chunks: Optional[Set[str]] = None,
+) -> List[Citation]:
     citations: List[Citation] = []
     for item in raw or []:
         doc_id = str(item.get("doc_id", "")).strip()
@@ -54,6 +79,11 @@ def build_citations(index: KnowledgeIndex, raw: Sequence[Dict[str, Any]]) -> Lis
         if doc.doc_id != doc_id:
             citations.append(
                 Citation(doc_id, chunk_id, quote, valid=False, reason=f"doc_id 与片段不符，实际为 {doc.doc_id}")
+            )
+            continue
+        if read_chunks is not None and chunk_id not in read_chunks:
+            citations.append(
+                Citation(doc_id, chunk_id, quote, valid=False, reason="未调用 read_chunk 读取该片段原文，不得仅凭检索摘要引用")
             )
             continue
         if len(normalize(quote)) < MIN_QUOTE_LEN:
@@ -70,6 +100,8 @@ def apply_guardrails(
     index: KnowledgeIndex,
     answer: FinalAnswer,
     question: str,
+    read_chunks: Optional[Set[str]] = None,
+    conflict_pool: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> FinalAnswer:
     """就地修订 FinalAnswer，返回同一个对象，便于调用方直接使用。"""
     # 1) 引用校验
@@ -80,33 +112,51 @@ def apply_guardrails(
             answer.warnings.append(f"引用无效（{c.chunk_id}）：{c.reason}")
         answer.citations = [c for c in answer.citations if c.valid]
 
-    if answer.status == "answered" and not answer.citations:
-        answer.warnings.append("answered 缺少有效引用，已降级为 insufficient")
+    if answer.status in ("answered", "need_confirmation") and not answer.citations:
+        answer.warnings.append(f"{answer.status} 缺少有效引用，已降级为 insufficient")
         answer.status = "insufficient"
         answer.missing = answer.missing or "没有可核验的原文依据，无法给出有依据的答案"
 
-    # 2) 数值一致性（弱检查）：答案里的每个「数值+单位」，都应在引用原文中出现
+    # 2) 数值一致性（弱检查）：答案里的每个「数值+单位」，都应在引用原文（或显式提及旧版背景时已读取的被替代旧版原文）中出现
     if answer.status == "answered" and answer.citations:
         ans_nums = extract_quantities(answer.answer)
         if ans_nums:
             quote_text = "".join(c.quote for c in answer.citations)
             quote_nums = extract_quantities(quote_text)
-            missing = sorted(ans_nums - quote_nums)
-            if len(missing) == len(ans_nums):
+            archived_nums: Set[str] = set()
+            mentions_archived = any(k in (answer.answer or "") for k in _ARCHIVED_MENTION_HINTS)
+            if mentions_archived:
+                for cid in read_chunks or set():
+                    pair = index.get_chunk(cid)
+                    if pair and (pair[0].status == "archived" or pair[0].superseded_by):
+                        archived_nums |= extract_quantities(pair[1].text)
+            supported_nums = quote_nums | archived_nums
+            unverified = sorted(ans_nums - supported_nums)
+            if unverified or not (ans_nums & quote_nums):
+                bad = unverified or sorted(ans_nums - quote_nums)
                 answer.warnings.append(
-                    f"答案中的数值 {missing} 均未出现在引用原文中，已降级为 insufficient"
+                    f"答案中的数值 {bad} 未出现在引用原文中，已降级为 insufficient"
                 )
                 answer.status = "insufficient"
                 answer.missing = "答案的关键数值在引用原文中找不到对应，无法确认其依据"
-            elif missing:
-                answer.warnings.append(f"答案中的数值 {missing} 未出现在引用原文中，请人工复核")
 
     # 3) 冲突兜底
     if answer.status == "answered":
         cited_docs = sorted({c.doc_id for c in answer.citations})
+        cited_chunks = {c.chunk_id for c in answer.citations}
         conflicts: List[ConflictGroup] = unresolved_among(index, cited_docs)
-        q_tokens = set(tokenize(question))
-        relevant = [g for g in conflicts if set(tokenize(g.key)) & q_tokens]
+        pooled_keys = {
+            str(item.get("key", ""))
+            for item in (conflict_pool or [])
+            if not item.get("resolvable", True)
+        }
+        relevant = [
+            g
+            for g in conflicts
+            if ({e.chunk_id for e in g.entries} & cited_chunks)
+            or is_conflict_relevant(g.key, question)
+            or (g.key in pooled_keys and is_conflict_relevant(g.key, question))
+        ]
         if relevant:
             group = relevant[0]
             answer.warnings.append(f"被引用文档之间存在未消解冲突（{group.key}），已降级为 need_confirmation")

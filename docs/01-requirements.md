@@ -53,12 +53,12 @@
 | 明确答案 | Q1 | `answered` | 引用 D01#3，答案含 500 元/晚 |
 | 文档冲突 | Q2 | `need_confirmation` | 同时引用 D01、D02，并列 30 / 15 |
 | 资料外问题 | Q3 | `insufficient` | 引用为空，说明缺什么 |
-| 改写后的相似问题 | Q4 | `answered` | Trace 中出现 ≥2 次不同 query 的检索 |
+| 改写后的相似问题 | Q4 | `answered` | 检索词由口语改写为制度书面表达，引用 D01#3 |
 | 上下文追问 | Q6 | `answered` | 检索词继承上一轮"年假" |
 | 工具失败 | Q7 | `error` | read_chunk 全失败后停止，不凭片段作答 |
-| （额外）版本冲突 | Q5 | `answered` | 只引用 D03，答案含"依据" |
+| （额外）版本冲突 | Q5 | `answered` | 引用 D03#1（及 D04#2 废止说明），答案含替代依据 |
 
 ## 6. 成功标准
 
-`python -m src.cli eval` 7/7 通过，`python -m pytest` 31/31 通过，
+`python -m src.cli eval` 7/7 通过，`python -m pytest` 56/56 通过，
 且 `examples/` 中每组 trace 的引用均可人工逐字核对。

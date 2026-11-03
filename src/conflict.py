@@ -69,11 +69,15 @@ def _resolve(entries: List[tuple]) -> tuple[bool, Optional[str], str]:
                     f"{doc.doc_id} 已被 {newer.doc_id} 替代（见 {doc.doc_id} 版本说明），以 {newer.doc_id} 为准",
                 )
 
-    # 适用范围优先于"谁更新"：具体范围的规定在其范围内覆盖全公司规定。
-    # 外部评审指出此前注释声称"作用域相同"，实现却没比较 scope，这里补上。
-    specific = [d for d in docs if d.scope != COMPANY_WIDE]
-    company = [d for d in docs if d.scope == COMPANY_WIDE]
-    if specific and company and len({d.scope for d in specific}) == 1:
+    active = [d for d in docs if d.status == "active"]
+    if len(active) < 2:
+        return True, (active[0].doc_id if active else None), "仅一份文件处于有效状态"
+
+    # 适用范围优先于"谁更新"：仅当唯一一份现行具体范围规定与全公司规定并存时，具体范围在其范围内优先。
+    # 外部评审指出此前注释声称"作用域相同"，实现却没比较 scope，且未先过滤 archived 状态，这里一并收紧。
+    specific = [d for d in active if d.scope != COMPANY_WIDE]
+    company = [d for d in active if d.scope == COMPANY_WIDE]
+    if len(specific) == 1 and company:
         winner = specific[0]
         return (
             True,
@@ -81,10 +85,6 @@ def _resolve(entries: List[tuple]) -> tuple[bool, Optional[str], str]:
             f"{winner.doc_id} 仅适用于「{winner.scope}」，在该范围内优先于全公司规定 "
             f"{'、'.join(d.doc_id for d in company)}",
         )
-
-    active = [d for d in docs if d.status == "active"]
-    if len(active) < 2:
-        return True, (active[0].doc_id if active else None), "仅一份文件处于有效状态"
 
     names = "、".join(f"{d.doc_id}（{d.version}，适用：{d.scope}）" for d in active)
     return (
@@ -135,26 +135,44 @@ def detect_conflicts(index: KnowledgeIndex, doc_ids: Optional[Sequence[str]] = N
     return results
 
 
-def conflicts_for_query(index: KnowledgeIndex, query: str) -> List[ConflictGroup]:
-    """按查询词筛出相关冲突。
+_DURATION_HINTS = ("多久", "几天", "几日", "多长时间", "什么时候", "时效", "时限", "期限", "逾期")
 
-    只用「任意 token 重叠」会把无关冲突带进来（例如「报销期限…天数」会误命中「年假天数」），
-    干扰模型判断。这里改用两条更严的判据，任一满足即算相关：
 
-    1. 冲突键的前两个字作为子串出现在查询里（中文场景下这一条命中率最高）
-    2. 与冲突键有 ≥2 个 token 重叠
+def is_conflict_relevant(key: str, query: str) -> bool:
+    """判断冲突键 key 是否与查询词 query 主题相关。
+
+    避免仅凭泛化前缀（如「报销期限」的前两字「报销」）就把「差旅住宿报销标准」
+    「报销发票要求」等无关问题误判为命中「报销期限」冲突：
+      1. 冲突键主体（去掉括号说明）完整出现在查询中，或与查询有 >=2 个二元词重叠；
+      2. 若仅命中前两字（主题词），则还需命中后半部分属性字符（如「期/限」「天/数」）或时限类疑问词。
     """
+    query = query or ""
     q_tokens = set(tokenize(query))
     if not q_tokens:
+        return False
+    head = (key or "").split("（")[0]
+    if not head:
+        return False
+    if head in query:
+        return True
+    if len(set(tokenize(head)) & q_tokens) >= 2:
+        return True
+    if len(head) >= 2 and head[:2] in query:
+        tail = head[2:]
+        if not tail:
+            return True
+        if any(ch in query for ch in tail):
+            return True
+        if any(w in query for w in _DURATION_HINTS):
+            return True
+    return False
+
+
+def conflicts_for_query(index: KnowledgeIndex, query: str) -> List[ConflictGroup]:
+    """按查询词筛出相关冲突。"""
+    if not tokenize(query):
         return []
-    picked: List[ConflictGroup] = []
-    for group in detect_conflicts(index):
-        head = group.key.split("（")[0]
-        by_head = head[:2] in query if len(head) >= 2 else False
-        by_tokens = len(set(tokenize(head)) & q_tokens) >= 2
-        if by_head or by_tokens:
-            picked.append(group)
-    return picked
+    return [group for group in detect_conflicts(index) if is_conflict_relevant(group.key, query)]
 
 
 def unresolved_among(index: KnowledgeIndex, doc_ids: Sequence[str]) -> List[ConflictGroup]:

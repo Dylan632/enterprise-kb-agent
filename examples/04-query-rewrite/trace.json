@@ -17,7 +17,7 @@
         "top_k": 5
       },
       "result_summary": "检索「出差住宿标准 每晚上限」返回 5 条，最佳 D01#3（住宿标准，coverage=0.375，strong）",
-      "next_action": "read_chunk",
+      "next_action": "read_chunk + check_conflicts",
       "reason": "检索到 D01《差旅报销管理办法》住宿标准条目，且 D02 声称是本办法的补充规定并行执行，我先读取原文并检查是否存在跨文档冲突。",
       "ok": true,
       "latency_ms": 0
@@ -31,7 +31,7 @@
         "top_k": 5
       },
       "result_summary": "检索「住宿费标准 报销限额 城市」返回 5 条，最佳 D01#3（住宿标准，coverage=0.5，strong）",
-      "next_action": "read_chunk",
+      "next_action": "read_chunk + check_conflicts",
       "reason": "检索到 D01《差旅报销管理办法》住宿标准条目，且 D02 声称是本办法的补充规定并行执行，我先读取原文并检查是否存在跨文档冲突。",
       "ok": true,
       "latency_ms": 0

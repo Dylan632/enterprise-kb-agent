@@ -76,7 +76,7 @@
       },
       "result_summary": "发现 1 组冲突：年假天数（入职满 1 年）（可判定，以 D03 为准）",
       "next_action": "submit_answer",
-      "reason": "根据上一轮观察继续",
+      "reason": "已核实原文且无未消解冲突，提交最终答案",
       "ok": true,
       "latency_ms": 0
     },
@@ -116,9 +116,7 @@
     ],
     "conflicts": [],
     "missing": "",
-    "warnings": [
-      "答案中的数值 ['5'] 未出现在引用原文中，请人工复核"
-    ]
+    "warnings": []
   },
   "notes": []
 }

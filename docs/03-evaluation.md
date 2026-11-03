@@ -15,7 +15,7 @@
 
 ## 2. 单元测试
 
-`python -m pytest -q` → **46 passed in 0.21s**
+`python -m pytest -q` → **56 passed**
 
 | 文件 | 用例数 | 覆盖内容 |
 | --- | --- | --- |
@@ -23,9 +23,9 @@
 | `test_budget.py` | 6 | 步数上限、停滞检测、token 预算、非法配置 |
 | `test_conflict.py` | 4 | 两类冲突的判定差异、按主题过滤 |
 | `test_verify.py` | 6 | 引用逐字校验、doc_id 错配、无引用降级、冲突兜底 |
-| `test_agent.py` | 9 | 7 条决策路径 + Trace 字段完整性 + 步数上限 |
+| `test_agent.py` | 10 | 7 条决策路径 + Trace 字段完整性 + 步数上限 + **动态替换文档内容验证** |
 | `test_no_secrets.py` | 3 | 全仓库密钥扫描、`.env.example` 留空、`.gitignore` 规则 |
-| `test_review_fixes.py` | 12 | 外部评审 5 条问题的回归测试，见第 7 节 |
+| `test_review_fixes.py` | 21 | 三轮独立模型评审 12 项问题的回归测试，见第 7 节 |
 
 ## 3. 端到端验收结果
 
@@ -79,15 +79,14 @@ live 反而**用更少的轮次拿到更完整的举证**，因为它会并发�
 
 **Q3 资料外问题** — `examples/03-out-of-scope/trace.md`
 
-- 4 轮共 6 次检索，逐步改写：`年会预算` → `员工活动经费标准` → `会议费 活动费 预算审批` → `员工活动、年会、团建费用报销`
-- 全部 `hit_quality=weak` 或空，最终 `insufficient`，引用为空
+- 3 轮共 4 次检索 + 1 次提交，两轮逐步改写：`年会预算标准` / `会议活动费用预算审批` → `员工活动经费 团建费用标准 每人` / `年度庆典 大型活动 经费额度 专项预算`
+- 全部 `hit_quality=weak/none`，最终 `insufficient`，引用为空
 - 答案里列了检索过的关键词，说明"我找过但没有"——比单纯说"不知道"更有用
 
 **Q4 改写后的相似问题** — `examples/04-query-rewrite/trace.md`
 
-- `住酒店一晚上限多少钱？` 首轮无 strong 命中
-- 改写后命中 D01#3，5 次调用完成
-- 改写动作在 trace 中可见（两条不同 query）
+- 原问题 `住酒店一晚上限多少钱？` 与原文「住宿标准」无词面重叠（直接检索为 `hit_quality=none`，见离线对照 `examples/offline-mock/04-query-rewrite/trace.md` 第 1→2 步）
+- 真实模型在首轮即主动将口语改写为两条书面查询（`出差住宿标准 每晚上限` / `住宿费标准 报销限额 城市`）并发检索，直接 strong 命中 D01#3，5 次调用完成
 
 **Q5 版本冲突** — `examples/05-version-conflict/trace.md`
 
@@ -138,7 +137,7 @@ live 反而**用更少的轮次拿到更完整的举证**，因为它会并发�
 
 ```bash
 pip install -r requirements.txt
-python -m pytest -q                              # 46 passed
+python -m pytest -q                              # 56 passed
 
 # 离线（无需 key）
 python -m src.cli eval --offline
@@ -153,17 +152,23 @@ python -m src.cli ask "报销期限是多久？" -v
 
 ## 7. 外部评审与修复
 
-交付前把项目打包交给另一个模型做了一次独立静态审查（材料见 `enterprise-kb-agent-review/`）。
-它报了 2 个高优先级 + 3 个中优先级问题。**5 条全部属实，已全部修复并补了回归测试**
-（`tests/test_review_fixes.py`，12 个用例）。
+交付前先后做了三轮独立模型静态与动态审查（材料见 `enterprise-kb-agent-review/`）。
+第一轮报了 5 个问题，第二轮进一步深挖出 5 个边界漏洞，第三轮又检出同轮并发提前提交与新旧数字混搭 2 项隐患。**累计 12 条问题全部属实，已全部修复并补齐 21 条回归测试**（`tests/test_review_fixes.py`）及 1 条动态替换文档内容测试（`tests/test_agent.py`）。
 
-| # | 严重度 | 评审指出的问题 | 我的确认 | 修复 |
+| # | 轮次 | 严重度 | 评审指出的问题 | 修复 |
 | --- | --- | --- | --- | --- |
-| 1 | 高 | 模型不调工具、直接返回文本时，`agent.py` 把它设为 `answered` 并结束，**绕过了 `apply_guardrails`** | 属实。这条路径没有任何引用校验 | 统一送进 `apply_guardrails`；无引用即降级 `insufficient`，并记录 `tool="(none)"` 的步骤 |
-| 2 | 高 | `verify.py` 只校验引文是原文子串，不校验答案是否由引文推出 | 属实，且这是设计边界而非 bug | ① 模块文档改名为「引用真实性校验」并写明不保证语义 ② 新增数值一致性弱检查：答案里的「数值+单位」必须能在引文中找到 |
-| 3 | 中 | `conflict.py` 按 `key` 跨全部文档分组，**没有比较 `scope`**，注释却说"作用域相同" | 属实，注释与实现不符 | 新增 `_scope_overlaps` / `_scopes_disjoint`；范围不相交不判冲突；全公司 vs 具体范围时具体范围优先 |
-| 4 | 中 | 未知 `status` 回退成 `answered`，拼错的状态可能把无依据答案标成已回答 | 属实 | 改为失败关闭：返回 `error` + `unknown_status` 告警 |
-| 5 | 中 | `eval` 只查状态与引用文档，**答案数字错了也能 PASS** | 属实，Q1 确实没断言 500 | 用例新增 `expect_answer_contains`；判定增加引用有效性检查 |
+| 1 | 第一轮 | 高 | 模型不调工具、直接返回文本时，`agent.py` 把它设为 `answered` 并结束，**绕过了 `apply_guardrails`** | 统一送进 `apply_guardrails`；无引用即降级 `insufficient`，并记录 `tool="(none)"` 的步骤 |
+| 2 | 第一轮 | 高 | `verify.py` 只校验引文是原文子串，不校验答案是否由引文推出 | 模块文档写明边界，并新增数值一致性检查 |
+| 3 | 第一轮 | 中 | `conflict.py` 按 `key` 跨全部文档分组，**没有比较 `scope`** | 新增 `_scope_overlaps` / `_scopes_disjoint`；范围不相交不判冲突 |
+| 4 | 第一轮 | 中 | 未知 `status` 回退成 `answered` | 改为失败关闭：返回 `error` + `unknown_status` 告警 |
+| 5 | 第一轮 | 中 | `eval` 只查状态与引用文档，**答案数字错了也能 PASS** | 用例新增 `expect_answer_contains` 与 `expect_rewrite` 校验；判定增加引用有效性检查 |
+| 6 | 第二轮 | 高 | `conflict.py` 用前两字 `"报销"` 匹配冲突，且 `verify.py` 按文档级 `cited_docs` + 单 token 重叠兜底，导致**问「住宿报销标准」被误判为「报销期限冲突」（误伤）**，而口语问报销期限反而漏拦 | `is_conflict_relevant` 要求命中属性后缀或时限词；`verify.py` 改为优先检查**被引用 `chunk_id` 是否命中冲突片段** |
+| 7 | 第二轮 | 高 | `build_citations` 未核验 `chunk_id` 是否在本次运行中被 `read_chunk` 成功读取，**模型可直接复制 `search_docs` 的 40 字摘要充当引用**；且 `need_confirmation` 未强制要求有效引用 | `ToolRegistry` 记录 `read_chunks`，未读原文的引用一律判无效；`need_confirmation` 无有效引用同样降级 `insufficient` |
+| 8 | 第二轮 | 中 | 数值检查仅在 `len(missing) == len(ans_nums)` 时降级，**只要对上 1 个数字就放行其他编造数字**；同时 Q5/Q6 补充说明引用已读旧版 `D04#1` 数字被误报警告 | 改为任一数值不在「有效引文 ∪ 已读归档原文」中即降级 `insufficient`；扩充单位正则覆盖 `年/个月/分钟` |
+| 9 | 第二轮 | 中 | `conflict.py` 中 `scope` 优先级判断在 `status=="active"` 过滤前执行，且未排除同一区域多份文档内部冲突 | 先过滤 `active` 文档，仅当唯一具体范围规定与全公司规定并存时才判可消解 |
+| 10 | 第二轮 | 低 | `_link_steps` 在并发工具调用时只显示首个工具，无文本提交时 `reason` 退化为泛化占位词 | 拼接下一轮去重工具集合，并按 `submit_answer` 状态生成明确决策依据 |
+| 11 | 第三轮 | 中 | 同轮并发调用 `read_chunk` + `submit_answer` 时，模型尚未观察到原文结果即可提前结算退出 | `agent.py` 检测同轮存在其他工具时调用 `reject_premature_submit` 阻断提前提交，要求下一轮观察后再交 |
+| 12 | 第三轮 | 中 | `archived_nums` 无条件并入 `supported_nums`，若模型未提旧版背景却把旧版数字当现行标准答出会被放行 | `verify.py` 仅在答案显式包含「旧版/归档/替代/2023」等对比字样时才允许归档文档数字参与豁免 |
 
 ### 修复 1 的意义
 
@@ -196,10 +201,10 @@ if not response.tool_calls:
 
 | 项 | 修复前 | 修复后 |
 | --- | --- | --- |
-| 测试数 | 34 | **46** |
-| live 回归 | 7/7 | **7/7**（判定条件更严） |
+| 测试数 | 34 | **56** |
+| live 回归 | 7/7 | **7/7**（判定条件更严，0 误报警告） |
 | 离线回归 | 7/7 | **7/7** |
-| 可绕过的作答路径 | 1 条（无工具直答） | 0 条 |
+| 可绕过的作答路径 | 无工具直答 / 凭检索摘要引用 / 空引用待确认 | **0 条** |
 
 ### 一点反思
 

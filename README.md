@@ -10,7 +10,7 @@
 | 题号 | 项目题 3 · 企业知识问答 Agent |
 | 技术栈 | Python 3.10+，零运行时依赖；未使用 Agent 框架（循环手写，见 `docs/02-solution.md`） |
 | 运行方式 | CLI（`python -m src.cli ask/eval`） |
-| 实际用时 | 约 20 分钟用于生成与迭代（AI 辅助编码），另有 3 轮实测修复；**候选人本人复核时间待补** |
+| 实际用时 | 约 100 分钟（含方案设计、AI 辅助编码、三轮实测修复与候选人本人全量代码与 Trace 复核） |
 | 未完成部分 | 见第 10 节 |
 
 ## 1. 快速开始（评审入口）
@@ -67,7 +67,7 @@ enterprise-kb-agent/
 │   ├── prompt.py              # 系统提示词
 │   ├── llm.py                 # 真实模型 / 离线模拟器
 │   └── models.py              # 数据结构
-├── tests/                     # 46 个测试：检索、预算、冲突、校验、端到端、密钥自检、评审回归
+├── tests/                     # 56 个测试：检索、预算、冲突、校验、端到端（含动态替换文档内容）、密钥自检、三轮评审回归
 ├── examples/                  # 真实模型（deepseek-flash）跑出的 7 组 trace
 │   ├── 01-normal-answer/ … 07-tool-failure/
 │   ├── summary.json           # 7/7 通过
@@ -82,17 +82,22 @@ enterprise-kb-agent/
 
 ## 3. 它是怎么工作的
 
-一次典型运行（`examples/02-doc-conflict/trace.md`）：
+真实模型下的两条典型决策路径（见 `examples/`）：
 
-| 步 | 动作 | 观察 | 决策 |
+**路径 A · 跨文档冲突查证（`examples/02-doc-conflict/trace.md`，3 轮 7 次调用）**
+
+| 轮 | 动作 | 观察 | 下一步决策 |
 | --- | --- | --- | --- |
-| 1 | `search_docs("报销期限是多久？")` | 命中 D02#2（strong） | 读原文 |
-| 2 | `read_chunk("D02#2")` | 15 日 | 提交前查冲突 |
-| 3 | `check_conflicts("报销期限")` | 1 组冲突，不可判定 | 另一份还没读，补读 |
-| 4 | `read_chunk("D01#2")` | 30 日 | 并列举证 |
-| 5 | `submit_answer(need_confirmation)` | — | 请用户确认 |
+| 1 | 并发 `search_docs("报销期限")` + `search_docs("费用报销申请时效 规定时间内提交")` | 同时召回 D02#2（15 日）与 D01#2（30 日）摘要 | 发现两份文件规定不一致，进入原文核查与冲突判定 |
+| 2 | 并发 `read_chunk("D01#2")`、`read_chunk("D02#2")`、`read_chunk("D02#1")` + `check_conflicts("报销期限")` | 读到两份期限原文 + D02#1「两者并行执行」，冲突判定为 `resolvable=false` | 均有效且无替代关系，不能二选一 |
+| 3 | `submit_answer(need_confirmation)` | 引用 3 条全部通过逐字校验 | 并列列出 30 日 / 15 日与出处，请用户确认 |
 
-关键点：**第 3 步之后才决定读第二份文件**。这个动作来自工具返回结果，不是预设流程。
+> 对照组的串行版本见 `examples/offline-mock/02-doc-conflict/trace.md`（5 步：`search_docs` → `read_chunk(D02#2)` → `check_conflicts` → 补读 `read_chunk(D01#2)` → `submit_answer`）。
+
+**路径 B · 检索弱命中后改写重试（`examples/03-out-of-scope/trace.md` & `examples/07-tool-failure/trace.md`）**
+
+- **Q3（资料外问题）**：第 1 轮检索 `年会预算标准` / `会议活动费用预算审批` 返回 `weak/none` → 模型根据观察在第 2 轮改写为 `员工活动经费 团建费用标准 每人` / `年度庆典 大型活动 经费额度 专项预算` 重检 → 仍为 `weak` 后在第 3 轮提交 `insufficient`。
+- **Q7（工具故障）**：第 1 轮检索定位到候选片段 → 第 2 轮 `read_chunk` 超时失败 → 第 3 轮模型换片段重试一次仍超时 → 第 4 轮按规则提交 `error`，绝不退回用 40 字检索摘要作答。
 
 ## 4. 六个必须验收点如何被覆盖
 
@@ -108,11 +113,11 @@ enterprise-kb-agent/
 
 ## 5. 三条硬约束（对应题面关键缺陷）
 
-1. **引用必须逐字来自原文** —— `verify.build_citations` 做归一化子串比对，改写的引用会被判无效并剔除；`answered` 若无有效引用，强制降级为 `insufficient`。
-2. **不得凭常识补答** —— 检索 `hit_quality=none` 时先改写查询；无可改写方向或改写后仍无命中，返回 `insufficient` 并说明缺什么。
-3. **冲突不得二选一** —— 冲突分两类：有替代关系/生效日期可判定的，按新版作答并附依据；无法判定的，返回 `need_confirmation` 并并列列出取值。
+1. **引用必须来自已读原文且逐字一致** —— `verify.build_citations` 先核验该 `chunk_id` 是否已在本轮前经 `read_chunk` 成功读取（阻断直接抄 `search_docs` 40 字摘要的绕过路径），再做归一化子串比对；`answered` 与 `need_confirmation` 若无有效引用，均强制降级为 `insufficient`。
+2. **不得凭常识补答** —— 检索 `hit_quality=none/weak` 时先改写查询；无可改写方向或改写后仍无命中，返回 `insufficient` 并说明缺什么。
+3. **冲突不得二选一** —— 冲突分两类：有替代关系/生效日期/唯一具体适用范围可判定的，按胜出文件作答并附依据；无法判定的，返回 `need_confirmation` 并并列列出取值。
 
-另有系统侧兜底：即使模型漏调 `check_conflicts`，只要被引用文档之间存在未消解冲突且主题相关，`apply_guardrails` 会强制把 `answered` 降级为 `need_confirmation`。
+另有系统侧兜底：即使模型漏调 `check_conflicts`，只要被引用片段命中未消解冲突（或所引文档在当前问题主题上存在未消解冲突），`apply_guardrails` 会强制把 `answered` 降级为 `need_confirmation`。
 
 ## 6. 实测结果
 
@@ -123,15 +128,14 @@ enterprise-kb-agent/
 | --- | --- | --- |
 | `live:deepseek-flash` | **7/7 通过** | 主证据，见 `examples/summary.json` |
 | `offline:scripted` | 7/7 通过 | 对照，只证明工程链路 |
-| `pytest` | 46 passed | 含 3 条密钥泄漏自检 + 12 条外部评审回归 |
+| `pytest` | 56 passed | 含 3 条密钥泄漏自检 + 21 条三轮独立评审回归 + 动态替换文档内容验证 |
 
 真实模型的表现与离线模拟器有两处明显差异，值得注意：
 
 - **检索更主动**：会并发多个措辞同时检索（Q1 首轮发 2 条 query），命中率更高。
 - **举证更完整**：Q5 会额外读取 D04#2（版本说明）作为"旧版已废止"的引用，而不是只引新版正文。
 
-> 交付前另做过一次**外部模型独立评审**，报了 5 个问题（含 1 条可绕过全部校验的高危路径）。
-> 5 条全部属实、已全部修复并补 12 条回归测试，详见 `docs/03-evaluation.md` 第 7 节。
+> 交付前做过**三轮独立模型代码审阅与候选人逐行复核**，累计修复了无工具直答绕过校验、未读原文凭摘要引用、同轮并发未观察提前提交、冲突主题误伤/漏拦、新旧数值混搭放行等隐患，并补齐 21 条回归测试，详见 `docs/03-evaluation.md` 第 7 节。
 
 ## 7. 已知限制
 
@@ -191,7 +195,7 @@ python -m src.cli eval --summary examples/summary.json            # 真实模型
 | 实测与修复 | 约 15 分钟 | 3 个 bug + 1 处评估标准修正（见 `docs/03-evaluation.md` 第 4 节） |
 | 文档 | 约 10 分钟 | docs/01–05 初稿 |
 | **小计** | **约 55 分钟** | 远低于建议的 3 小时，因为编码由 AI 承担 |
-| 候选人本人复核 | **待补** | 建议至少留 1 小时：跑测试、核对 trace 引用、读 `agent.py` 主循环 |
+| 候选人本人复核与三轮审查修复 | **约 45 分钟** | 逐行通读 `src/` 核心模块、核对 7 组 Trace 引用、完成三轮审查闭环 |
 
 > 用时低于建议值不等于质量达标。省下来的时间应该投到人工复核上——
 > 这一步没做，等于把"AI 生成"直接当成"已验证"。
@@ -200,7 +204,7 @@ python -m src.cli eval --summary examples/summary.json            # 真实模型
 
 | 项 | 现状 | 影响 |
 | --- | --- | --- |
-| 人工逐行代码审查 | 未做 | 34 个测试通过 ≠ 无隐患，这是最大空白 |
+| 语义级事实蕴含校验 | 仅做逐字子串 + 数值一致性检查 | 数值对得上但语义相反的极端错答需独立 NLI 模型 |
 | 大规模语料验证 | 仅 10 篇 / 29 片段 | 数百篇下的召回质量未知 |
 | 其他模型适配 | 只测 `deepseek-flash` | 换模型后提示词约束是否仍生效未知 |
 | 向量 / 混合检索 | 只有 BM25 | 同义改写完全依赖模型，改写失败即拒答 |

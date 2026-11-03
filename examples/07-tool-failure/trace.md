@@ -11,14 +11,14 @@
 
 | 步 | 工具 | 参数 | 返回摘要 | 下一步 | 决策依据 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | `search_docs` | `{"query": "报销期限", "top_k": 5}` | 检索「报销期限」返回 5 条，最佳 D02#2（报销期限，coverage=1.0，strong） | `read_chunk` | 两份文档的期限不一致（15 日 / 30 日），我读取原文并检查冲突。 |
-| 1 | `search_docs` | `{"query": "费用报销时限规定 自费用发生之日起", "top_k": 5}` | 检索「费用报销时限规定 自费用发生之日起」返回 5 条，最佳 D02#2（报销期限，coverage=0.615，strong） | `read_chunk` | 两份文档的期限不一致（15 日 / 30 日），我读取原文并检查冲突。 |
+| 1 | `search_docs` | `{"query": "报销期限", "top_k": 5}` | 检索「报销期限」返回 5 条，最佳 D02#2（报销期限，coverage=1.0，strong） | `read_chunk + check_conflicts` | 两份文档的期限不一致（15 日 / 30 日），我读取原文并检查冲突。 |
+| 1 | `search_docs` | `{"query": "费用报销时限规定 自费用发生之日起", "top_k": 5}` | 检索「费用报销时限规定 自费用发生之日起」返回 5 条，最佳 D02#2（报销期限，coverage=0.615，strong） | `read_chunk + check_conflicts` | 两份文档的期限不一致（15 日 / 30 日），我读取原文并检查冲突。 |
 | 2 | `read_chunk` ❌ | `{"chunk_id": "D02#2"}` | 失败：read_chunk 调用失败：上游服务超时（模拟故障注入） | `read_chunk` | 三个片段读取均因上游超时失败，我换片段重试一次。 |
 | 2 | `read_chunk` ❌ | `{"chunk_id": "D01#2"}` | 失败：read_chunk 调用失败：上游服务超时（模拟故障注入） | `read_chunk` | 三个片段读取均因上游超时失败，我换片段重试一次。 |
 | 2 | `read_chunk` ❌ | `{"chunk_id": "D02#1"}` | 失败：read_chunk 调用失败：上游服务超时（模拟故障注入） | `read_chunk` | 三个片段读取均因上游超时失败，我换片段重试一次。 |
 | 2 | `check_conflicts` | `{"query": "报销期限 费用发生之日起多少日内提交"}` | 发现 1 组冲突：报销期限（不可判定，需确认） | `read_chunk` | 三个片段读取均因上游超时失败，我换片段重试一次。 |
-| 3 | `read_chunk` ❌ | `{"chunk_id": "D02#2"}` | 失败：read_chunk 调用失败：上游服务超时（模拟故障注入） | `submit_answer` | 根据上一轮观察继续 |
-| 3 | `read_chunk` ❌ | `{"chunk_id": "D01#2"}` | 失败：read_chunk 调用失败：上游服务超时（模拟故障注入） | `submit_answer` | 根据上一轮观察继续 |
+| 3 | `read_chunk` ❌ | `{"chunk_id": "D02#2"}` | 失败：read_chunk 调用失败：上游服务超时（模拟故障注入） | `submit_answer` | 原文读取连续失败，无法核实条款原文，停止作答 |
+| 3 | `read_chunk` ❌ | `{"chunk_id": "D01#2"}` | 失败：read_chunk 调用失败：上游服务超时（模拟故障注入） | `submit_answer` | 原文读取连续失败，无法核实条款原文，停止作答 |
 | 4 | `submit_answer` | `{"status": "error", "answer": "抱歉，暂时无法给出有依据的答复：读取制度原文的工具连续两次超时失败，我无法核对条款原文，因此不能凭检索片段作答。\n\n补充说明：从检索结果看，《差旅报销管理办法》（D01…` | 提交答案 status=error，引用 0 条 | `结束` | 模型提交最终答案 |
 
 ## 最终结果

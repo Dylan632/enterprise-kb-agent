@@ -17,7 +17,7 @@
         "top_k": 5
       },
       "result_summary": "检索「出差住宿标准」返回 3 条，最佳 D01#3（住宿标准，coverage=0.6，strong）",
-      "next_action": "read_chunk",
+      "next_action": "read_chunk + check_conflicts",
       "reason": "检索命中「差旅报销管理办法」的住宿标准片段，我现在读取原文，并同时检查是否存在跨文档冲突。",
       "ok": true,
       "latency_ms": 0
@@ -31,7 +31,7 @@
         "top_k": 5
       },
       "result_summary": "检索「一线城市 住宿费 限额 标准」返回 3 条，最佳 D01#3（住宿标准，coverage=0.714，strong）",
-      "next_action": "read_chunk",
+      "next_action": "read_chunk + check_conflicts",
       "reason": "检索命中「差旅报销管理办法」的住宿标准片段，我现在读取原文，并同时检查是否存在跨文档冲突。",
       "ok": true,
       "latency_ms": 0
@@ -45,7 +45,7 @@
       },
       "result_summary": "读取 D01#3《差旅报销管理办法》住宿标准，55 字",
       "next_action": "submit_answer",
-      "reason": "根据上一轮观察继续",
+      "reason": "已核实原文且无未消解冲突，提交最终答案",
       "ok": true,
       "latency_ms": 0
     },
@@ -58,7 +58,7 @@
       },
       "result_summary": "未发现相关冲突",
       "next_action": "submit_answer",
-      "reason": "根据上一轮观察继续",
+      "reason": "已核实原文且无未消解冲突，提交最终答案",
       "ok": true,
       "latency_ms": 0
     },

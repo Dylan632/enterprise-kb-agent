@@ -130,8 +130,16 @@ class Agent:
                 }
             )
 
+            # 记录进入本轮前已成功读取过的片段：submit_answer 只能引用此前已观察到原文的片段
+            prior_read_chunks = set(registry.read_chunks)
+            has_other_tools = any(tc.name != "submit_answer" for tc in response.tool_calls)
+
             for tc in response.tool_calls:
-                result = registry.execute(tc.name, tc.arguments)
+                if tc.name == "submit_answer" and has_other_tools:
+                    # 同轮并发了其他取数/检查工具时，模型尚未观察到本轮工具返回结果，不得提前结算退出
+                    result = registry.reject_premature_submit()
+                else:
+                    result = registry.execute(tc.name, tc.arguments)
                 messages.append(
                     {
                         "role": "tool",
@@ -164,7 +172,7 @@ class Agent:
                 )
 
             if registry.submitted is not None:
-                final = self._finalize(registry.submitted, question, conflict_pool)
+                final = self._finalize(registry.submitted, question, conflict_pool, prior_read_chunks)
                 break
 
         trace.duration_ms = int((time.perf_counter() - started) * 1000)
@@ -174,7 +182,13 @@ class Agent:
 
     # ------------------------------------------------------------------ #
 
-    def _finalize(self, submitted: Dict[str, Any], question: str, conflict_pool: List[Dict[str, Any]]) -> FinalAnswer:
+    def _finalize(
+        self,
+        submitted: Dict[str, Any],
+        question: str,
+        conflict_pool: List[Dict[str, Any]],
+        read_chunks: Optional[set] = None,
+    ) -> FinalAnswer:
         raw_status = str(submitted.get("status", "")).strip()
         # 未知状态必须失败关闭。若回退到 answered，一个拼错的 status 加上一条真实引用
         # 就能把"未经支持的答案"标成已回答（外部评审 P1 指出）。
@@ -185,7 +199,7 @@ class Agent:
                 warnings=[f"unknown_status:{raw_status or 'empty'}"],
             )
         status = raw_status
-        citations = build_citations(self.index, submitted.get("citations") or [])
+        citations = build_citations(self.index, submitted.get("citations") or [], read_chunks=read_chunks)
         answer = FinalAnswer(
             status=status,
             answer=str(submitted.get("answer", "")).strip(),
@@ -195,20 +209,40 @@ class Agent:
         # 模型没查冲突时，用系统检测结果补齐，供 guardrail 使用
         if not conflict_pool:
             conflict_pool = [g.to_dict() for g in conflicts_for_query(self.index, question)]
-        return apply_guardrails(self.index, answer, question)
+        return apply_guardrails(
+            self.index,
+            answer,
+            question,
+            read_chunks=read_chunks,
+            conflict_pool=conflict_pool,
+        )
 
     @staticmethod
     def _link_steps(steps: List[StepRecord]) -> None:
         """后处理：把「下一步动作」与「决策依据」回填到上一步，形成完整的决策链。
 
         一轮模型回复可能并发多个工具调用，它们共享同一个 step 编号。
-        因此按「轮次」而不是按「调用」来连线：同一轮的所有调用，都指向下一轮的首个动作。
+        因此按「轮次」而不是按「调用」来连线：同一轮的所有调用，都指向下一轮的动作集合。
         """
+        submit_reasons = {
+            "answered": "已核实原文且无未消解冲突，提交最终答案",
+            "need_confirmation": "发现跨文档未消解冲突，提交待用户确认",
+            "insufficient": "检索无相关制度依据，按资料不足停止作答",
+            "error": "原文读取连续失败，无法核实条款原文，停止作答",
+        }
         for idx, step in enumerate(steps):
             nxt = next((s for s in steps[idx + 1 :] if s.step > step.step), None)
             if nxt is not None:
-                step.next_action = nxt.tool
-                step.reason = nxt.thought or "根据上一轮观察继续"
+                nxt_turn = [s for s in steps[idx + 1 :] if s.step == nxt.step]
+                unique_tools = list(dict.fromkeys(s.tool for s in nxt_turn))
+                step.next_action = " + ".join(unique_tools)
+                if nxt.thought:
+                    step.reason = nxt.thought
+                elif nxt.tool == "submit_answer":
+                    st = str(nxt.arguments.get("status", ""))
+                    step.reason = submit_reasons.get(st, "根据上一轮观察提交最终结果")
+                else:
+                    step.reason = "根据上一轮观察继续"
             else:
                 step.next_action = "结束"
                 step.reason = "模型提交最终答案" if step.tool == "submit_answer" else "任务结束"

@@ -87,3 +87,37 @@ def test_step_limit_returns_unfinished(index: KnowledgeIndex):
     trace = _run(index, "报销期限是多久？", max_steps=2)
     assert trace.final.status == "unfinished"
     assert trace.exit_reason == "hard_step_limit"
+
+
+def test_replacing_doc_content_dynamically_changes_answer_and_actions(index: KnowledgeIndex):
+    """对应题面「审核要点：替换文档内容，核对答案与动作是否改变」。
+
+    场景 A：把 D02 标为明确替代 D01（supersedes="D01"），再次询问「报销期限是多久？」：
+            冲突变为可判定，Agent 不再需要补读 D01 并列求确认，直接返回 answered（15 日）。
+    场景 B：把 D01#3 的住宿标准从 500 元/晚替换为 800 元/晚，再次询问「一线城市出差住宿标准是多少？」：
+            Agent 返回的答案与逐字引用同步变为 800 元/晚。
+    """
+    import copy
+
+    # 场景 A：修改 D02 与 D01 的替代关系
+    mutated_a = copy.deepcopy(index)
+    mutated_a.docs["D02"].supersedes = "D01"
+    mutated_a.docs["D01"].superseded_by = "D02"
+    mutated_a.docs["D01"].status = "archived"
+
+    trace_a = _run(mutated_a, "报销期限是多久？")
+    assert trace_a.final.status == "answered"
+    assert "15 日" in trace_a.final.answer
+    assert {c.doc_id for c in trace_a.final.citations} == {"D02"}
+
+    # 场景 B：替换 D01#3 条款原文内容
+    mutated_b = copy.deepcopy(index)
+    doc_d01, chunk_d01_3 = mutated_b.chunks["D01#3"]
+    chunk_d01_3.text = "一线城市（北京、上海、广州、深圳）住宿标准为 800 元/晚，其他城市为 450 元/晚。超标部分由个人承担。"
+
+    trace_b = _run(mutated_b, "一线城市出差住宿标准是多少？")
+    assert trace_b.final.status == "answered"
+    assert "800 元/晚" in trace_b.final.answer
+    assert "500" not in trace_b.final.answer
+    assert trace_b.final.citations[0].quote.startswith("一线城市（北京、上海、广州、深圳）住宿标准为 800 元/晚")
+
